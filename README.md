@@ -1,0 +1,123 @@
+# Cadence
+
+A native SwiftUI macOS app for scheduling local workflows with launchd. Requires macOS 14 or later. No third-party packages.
+
+## Open the app
+
+The built app is at **[dist/Cadence.app](dist/Cadence.app)**. Open it in Finder, or run:
+
+```sh
+open "dist/Cadence.app"
+```
+
+Keep the app at a stable path once you enable schedules: launchd points to its bundled runner. If you move the app, open the new copy and choose **Repair Schedule** for each enabled task. The app manages its own tasks; it does not modify or import unrelated existing LaunchAgents.
+
+## Tasks
+
+Create a task with **⌘N** or a starter button. Its overview is directly editable: name, notes, schedule, workflow, working directory, and environment all appear on the same page. Use **Save Changes** (⌘S) to apply edits, or **Revert** to discard them. Unsaved edits remain available when switching between tasks. Save before using **Run Now**. Tasks start paused; enable the schedule when ready.
+
+| Feature | Behavior |
+| --- | --- |
+| Daily | At a chosen wall-clock time |
+| Selected weekdays | Any combination, including every Thursday |
+| Every N days | Calendar days from an anchor date, at a chosen time |
+| Every N minutes | Fixed elapsed intervals from an anchor timestamp |
+| Once | One scheduled timestamp |
+| Skip missed runs | Discard occurrences older than the grace period; default 90 seconds |
+| Latest only | Coalesce the backlog into its most recent occurrence |
+| Replay backlog | Oldest first, with a configurable per-check batch limit; remaining work stays queued |
+| Question step | Ask for input anywhere in the workflow; cancellation or timeout stops remaining steps |
+| Response step | Display a message or an earlier result anywhere in the workflow |
+
+Calendar schedules use the task’s explicit time zone. Missing DST times move forward; repeated times run once. The editor previews upcoming occurrences. Editing a schedule or re-enabling a task resets scheduling from now. Paused time is not backfilled. Manual runs do not change the schedule cursor.
+
+## Steps
+
+- **Shell command:** literal code passed to `/bin/zsh -c`. Use quoted `$TASK_…` variables. Login-shell configuration is not loaded.
+- **Script file / executable:** select an existing file with **Choose File…**. Specify an optional interpreter, such as `/bin/zsh` or your uv project’s `.venv/bin/python`; leave it empty to run an executable file directly. The script path is passed automatically, followed by one argument per line, without shell parsing. Relative script and interpreter paths resolve against the task’s working directory. Inline commands and file scripts can coexist in the same workflow.
+- **Codex CLI:** `codex exec`, using an existing CLI login, the task’s working directory, optional model, and read-only or workspace-write sandbox. Prompts go through stdin; the final message is captured with `--output-last-message`. Interactive approvals are unavailable. No paid Codex call was made during verification; the CLI argument/stdin/output contract was tested with a local fixture.
+- **Local LLM:** an HTTP chat-completions endpoint, defaulting to `http://localhost:11434/v1/chat/completions`. Works with servers that implement `choices[0].message.content`, including compatible Ollama and LM Studio configurations. Set the installed model name explicitly. Optional bearer authentication uses `CADENCE_LLM_API_KEY` from the task’s environment.
+- **Ask a question:** displays a text-entry dialog at that point in the sequence. Its answer becomes both `{{input}}` and `{{previous_output}}` for following steps. Multiple questions are supported; `{{input}}` contains the most recent answer. Cancel or timeout stops remaining steps even when continue on failure is enabled. Earlier completed steps are retained.
+- **Show response:** displays literal text with variables, defaulting to `{{previous_output}}`. It preserves the previous output for later steps. Each response has its own dismissal timeout. The dialog displays the last 6,000 characters; the step’s captured output remains in the run folder.
+
+Questions and responses use the same add, edit, reorder, remove, output-file, and per-step execution controls as other steps. Existing task-level question/result settings automatically load as a question at the beginning and a response at the end. Saved definitions use only workflow steps. A failure stops later steps unless that failed step is configured to continue.
+
+Each step has a timeout, optional output path, and a continue-after-failure switch. Any failed step makes the final run status failed, even if later steps continue successfully. Output paths replace existing files atomically; parent directories must exist. Different tasks run concurrently; a single task never overlaps with itself, including manual runs. **Stop** requests cancellation, terminating the active process and its ordinary descendants. Detached processes that intentionally reparent themselves are outside this guarantee.
+
+### Parameters
+
+| Placeholder in arguments, prompts, environment values, output paths | Shell environment | Meaning |
+| --- | --- | --- |
+| `{{date}}` | `TASK_DATE` | Actual run date, `YYYY-MM-DD` in the task’s time zone |
+| `{{timestamp}}` | `TASK_TIMESTAMP` | Actual run start, ISO 8601 UTC |
+| `{{unix}}` | `TASK_UNIX` | Unix timestamp in seconds |
+| `{{scheduled_date}}` | `TASK_SCHEDULED_DATE` | Date of the original scheduled occurrence |
+| `{{scheduled_timestamp}}` | `TASK_SCHEDULED_TIMESTAMP` | Original scheduled timestamp, ISO 8601 UTC |
+| `{{input}}` | `TASK_INPUT` | Most recent question-step answer |
+| `{{previous_output}}` | `TASK_PREVIOUS_OUTPUT` | Previous step’s answer/stdout |
+| `{{previous_output_file}}` | `TASK_PREVIOUS_OUTPUT_FILE` | Path to the previous step’s saved output |
+| — | `TASK_ID` | Stable task UUID |
+
+For a catch-up report, use the **scheduled** date:
+
+```sh
+./report.sh --date "$TASK_SCHEDULED_DATE"
+```
+
+Shell source does not expand `{{…}}` placeholders. Answers and model output enter shell steps through environment variables to avoid evaluating them as shell code. Script arguments are passed directly. Placeholder expansion is a single pass.
+
+Prompts can consume up to the last 1 MB of prior output. The shell environment carries its last 16,000 characters to stay below macOS process limits. For larger data, read `TASK_PREVIOUS_OUTPUT_FILE`. That file contains full stdout for shell/script steps and the captured response for LLM steps. Full raw stdout/stderr remain in each run folder. UI log previews show the last 250 KB.
+
+## Background operation
+
+Each enabled task has a LaunchAgent at:
+
+```text
+~/Library/LaunchAgents/local.cadence.task.<uuid>.plist
+```
+
+The agent invokes the bundled runner on a one-minute calendar pulse and on load/login. Calendar triggers resume on wake. The runner uses a persisted cursor to compute missed occurrences, including across shutdown and login; it does not rely on launchd to preserve a backlog. You can close or quit the UI without disabling schedules.
+
+This version runs as the logged-in user. It does not power on or wake the Mac, run at the login screen, or bypass macOS privacy permissions. Questions need an interactive desktop and expire after the configured timeout. File access follows the account’s macOS permissions; background tools may need their usual access to protected folders.
+
+Before side effects, each occurrence is claimed durably. If the runner crashes or is killed, its claimed occurrence is not automatically retried, because it might already have changed files or made a request. A subsequent run marks stale running records as interrupted. Inspect history and rerun manually if appropriate. This favors avoiding duplicate side effects; it is not an exactly-once guarantee.
+
+**Repair Schedule** reinstalls an enabled task’s LaunchAgent. Registration failures are shown in the UI. Tasks cannot be edited or deleted during an active run. The launchd registration badge refreshes every 15 seconds. Agent diagnostics are stored in `agent.log` and `agent-error.log` in the data folder.
+
+## Storage & portability
+
+```text
+~/Library/Application Support/Cadence/
+  tasks.json              Task definitions
+  state/                  Durable schedule cursors, locks, cancellation requests
+  runs/<run UUID>/         Run metadata, stdout, stderr, inputs, and captured answers
+```
+
+Definitions are written atomically under a file lock. The data root is private to the user. Environment values, prompts, question answers, and outputs are local plaintext; exported definitions include environment values. Use your scripts and Keychain for secrets when possible. Log retention is manual in this version; there is no automatic history deletion.
+
+**File → Export Tasks** saves definitions. **Import Tasks** makes paused copies with new IDs. Import does not run them. Deleting a task removes its schedule and definition while retaining run history and output.
+
+## Build & verify
+
+```sh
+zsh scripts/build-app.sh
+zsh scripts/check.sh
+```
+
+The scripts use the installed macOS 26.5 SDK when available, avoiding the incomplete SwiftUI macro support in this machine’s default command-line macOS 27 SDK. The standalone check executable requires only Command Line Tools, rather than Xcode’s XCTest framework. The build generates an icon and ad-hoc signs the app locally; it is not notarized for distribution to other Macs.
+
+For an actual temporary launchd registration and optional local-model request:
+
+```sh
+CADENCE_LAUNCHD_TEST=1 zsh scripts/check.sh
+CADENCE_LAUNCHD_TEST=1 CADENCE_TEST_MODEL=qwen3.5:9b zsh scripts/check.sh
+```
+
+Checks use temporary data directories. The launchd check removes its test agent after completion. They cover schedule arithmetic, DST, missed-run policies, durable claims, process timeouts, exclusive execution, parameter handling, output chaining, failure behavior, the Codex invocation contract, and launchd integration. The optional model check makes one local request with a short synthetic prompt.
+
+## Implementation references
+
+- [Apple: scheduling timed jobs with launchd](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/ScheduledJobs.html)
+- [Official OpenAI documentation: Codex non-interactive mode](https://learn.chatgpt.com/docs/non-interactive-mode)
+
+The planner and file store are in `Sources/CadenceCore`; the separate runner is in `Sources/CadenceRunner`; the SwiftUI application is in `Sources/Cadence`.
