@@ -134,17 +134,18 @@ struct WorkflowEditor: View {
             HStack {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Workflow").font(.system(size: 22, weight: .semibold, design: .rounded))
-                    Text("Steps run in order. Add user input, commands, scripts, or alerts anywhere.").font(.caption).foregroundStyle(.secondary)
+                    Text("Follow the chain from start to finish. Each step can pass its output to the next.").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 addMenu
             }
+            WorkflowBoundary(title: "Start", symbol: "play.fill")
             ForEach($task.steps) { $step in
                 let index = task.steps.firstIndex(where: { $0.id == step.id }) ?? 0
                 VStack(alignment: .leading, spacing: 20) {
                     HStack(spacing: 12) {
                         Text(String(format: "%02d", index + 1)).font(.system(size: 12, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(Color.cadence).padding(9).background(Color.cadence.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
+                            .foregroundStyle(.white).frame(width: 34, height: 34).background(Color.cadence, in: Circle())
                         Image(systemName: step.kind.symbol).foregroundStyle(Color.cadence)
                         TextField("Step name", text: $step.name).font(.system(size: 16, weight: .medium)).textFieldStyle(.plain).accessibilityLabel("Step \(index + 1) name")
                         Spacer()
@@ -152,13 +153,17 @@ struct WorkflowEditor: View {
                         Button { move(step.id, 1) } label: { Image(systemName: "arrow.down") }.disabled(index == task.steps.count - 1).help("Move step down")
                         Button(role: .destructive) { task.steps.removeAll { $0.id == step.id } } label: { Image(systemName: "trash") }.help("Remove step")
                     }.buttonStyle(.borderless)
+                    Divider().overlay(Color.cadence.opacity(0.15))
                     StepFields(step: $step)
-                }.padding(22).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
-                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.08)))
+                }.padding(20).background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.cadence.opacity(0.35), lineWidth: 1.5))
+                if index < task.steps.count - 1 { WorkflowConnector() }
             }
             if task.steps.isEmpty { Text("Add a step to define what this task does.").foregroundStyle(.secondary).padding(.vertical, 15) }
+            WorkflowBoundary(title: "End", symbol: "checkmark")
             addMenu
-        }
+        }.padding(20).background(Color.cadence.opacity(0.045), in: RoundedRectangle(cornerRadius: 18))
+            .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.cadence.opacity(0.15)))
     }
     var addMenu: some View {
         Menu { ForEach(StepKind.allCases) { kind in Button { task.steps.append(TaskStep.make(kind)) } label: { Label(kind.title, systemImage: kind.symbol) } } } label: {
@@ -168,6 +173,26 @@ struct WorkflowEditor: View {
     func move(_ id: UUID, _ direction: Int) {
         guard let index = task.steps.firstIndex(where: { $0.id == id }), task.steps.indices.contains(index + direction) else { return }
         task.steps.swapAt(index, index + direction)
+    }
+}
+struct WorkflowBoundary: View {
+    let title: String
+    let symbol: String
+    var body: some View {
+        Label(title.uppercased(), systemImage: symbol).font(.system(size: 10, weight: .semibold))
+            .tracking(1.5).foregroundStyle(Color.cadence).padding(.leading, 24)
+    }
+}
+struct WorkflowConnector: View {
+    var body: some View {
+        HStack(spacing: 12) {
+            VStack(spacing: 0) {
+                Rectangle().fill(Color.cadence.opacity(0.5)).frame(width: 2, height: 10)
+                Image(systemName: "arrow.down").font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.cadence)
+                Rectangle().fill(Color.cadence.opacity(0.5)).frame(width: 2, height: 10)
+            }.frame(width: 34)
+            Text("THEN").font(.system(size: 9, weight: .medium)).tracking(1.5).foregroundStyle(.secondary)
+        }.padding(.leading, 20).accessibilityLabel("Then run the next step")
     }
 }
 struct StepFields: View {
