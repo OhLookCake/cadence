@@ -269,12 +269,11 @@ struct StepFields: View {
     @Binding var step: TaskStep
     var body: some View {
         VStack(alignment: .leading, spacing: 17) {
-            Picker("Step type", selection: $step.kind) {
+            Picker("Step type", selection: Binding(get: { step.kind }, set: { kind in
+                let id = step.id; step = TaskStep.make(kind); step.id = id
+            })) {
                 ForEach(StepKind.allCases) { kind in Text(kind.title).tag(kind) }
-            }.frame(maxWidth: 380).onChange(of: step.kind) { _, kind in
-                let id = step.id
-                step = TaskStep.make(kind); step.id = id
-            }
+            }.frame(maxWidth: 380)
             configuration
             Divider()
             DurationField(title: durationTitle, seconds: $step.timeoutSeconds)

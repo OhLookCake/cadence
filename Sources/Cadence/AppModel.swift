@@ -8,6 +8,10 @@ import CadenceCore
     @Published var runs: [RunRecord] = []
     @Published var selection: UUID?
     @Published var drafts: [UUID: ScheduledTask] = [:]
+    var draftBases: [UUID: ScheduledTask] = [:]
+    @Published var configFiles: [UUID: URL] = [:]
+    @Published var configIssues: [ConfigIssue] = []
+    @Published var registrationIssues: [String] = []
     @Published var error: String?
     @Published var agentIDs: Set<UUID> = []
     @Published var launched: Set<UUID> = []
@@ -20,16 +24,39 @@ import CadenceCore
         refresh()
         timer = Timer.scheduledTimer(withTimeInterval: 3, repeats: true) { [weak self] _ in Task { @MainActor in self?.refresh() } }
     }
-    func refresh() {
+    func refresh(force: Bool = false) {
+        if force { refreshCount = 0 }
         do {
-            tasks = try store.tasks(); runs = try store.runs()
+            let catalog = try store.catalog()
+            let changed = catalog.tasks != tasks
+            tasks = catalog.tasks; configFiles = catalog.files; configIssues = catalog.issues
+            runs = try store.runs()
             activeIDs = Set(tasks.filter { task in
                 do { let lock = try FileLock(url: store.lockURL(task.id), nonblocking: true); withExtendedLifetime(lock) {}; return false }
                 catch { return true }
             }.map(\.id))
-            if refreshCount % 5 == 0 { agentIDs = Set(tasks.filter { LaunchAgent.installed($0.id) }.map(\.id)) }
+            if changed || refreshCount % 5 == 0 { reconcileAgents() }
             refreshCount += 1
         } catch { self.error = error.localizedDescription }
+    }
+    private func reconcileAgents() {
+        var issues: [String] = []
+        do {
+            let managed = try LaunchAgent.managedIDs()
+            let enabled = Set(tasks.filter(\.enabled).map(\.id))
+            for id in managed.subtracting(enabled) {
+                // External edits never interrupt a currently executing occurrence.
+                guard let lock = try? FileLock(url: store.lockURL(id), nonblocking: true) else { continue }
+                defer { withExtendedLifetime(lock) {} }
+                do { try LaunchAgent.remove(id) } catch { issues.append(error.localizedDescription) }
+            }
+            for task in tasks where task.enabled && !LaunchAgent.installed(task.id) && !activeIDs.contains(task.id) {
+                do { try LaunchAgent.sync(task: task, runner: runner, root: store.root) }
+                catch { issues.append("\(task.name): \(error.localizedDescription)") }
+            }
+            agentIDs = Set(tasks.filter { LaunchAgent.installed($0.id) }.map(\.id))
+        } catch { issues.append(error.localizedDescription) }
+        registrationIssues = issues
     }
     func isRunning(_ task: ScheduledTask) -> Bool {
         launched.contains(task.id) || activeIDs.contains(task.id)
@@ -43,7 +70,7 @@ import CadenceCore
         do { try store.save(task); selection = task.id; refresh() }
         catch { self.error = error.localizedDescription }
     }
-    func save(_ edited: ScheduledTask) throws {
+    func save(_ edited: ScheduledTask, expecting base: ScheduledTask? = nil) throws {
         var task = edited
         try task.validate()
         if let old = tasks.first(where: { $0.id == task.id }) {
@@ -53,7 +80,7 @@ import CadenceCore
             }
         } else { task.scheduleActivatedAt = Date() }
         // Persist first: an agent never sees a half-written definition.
-        try store.save(task)
+        try store.save(task, expecting: base ?? tasks.first(where: { $0.id == task.id }))
         selection = task.id
         do { try LaunchAgent.sync(task: task, runner: runner, root: store.root) }
         catch {
@@ -77,6 +104,7 @@ import CadenceCore
             defer { withExtendedLifetime(lock) {} }
             try LaunchAgent.remove(task.id); try store.delete(task.id)
             drafts.removeValue(forKey: task.id)
+            draftBases.removeValue(forKey: task.id)
             if selection == task.id { selection = nil }; refreshCount = 0; refresh()
         } catch { self.error = error.localizedDescription }
     }
@@ -110,18 +138,32 @@ import CadenceCore
         do { try store.cancel(task.id) } catch { self.error = error.localizedDescription }
     }
     func exportTasks() {
-        let panel = NSSavePanel(); panel.nameFieldStringValue = "Cadence tasks.json"; panel.allowedContentTypes = [.json]
+        guard let task = tasks.first(where: { $0.id == selection }) else { return }
+        let panel = NSSavePanel(); panel.nameFieldStringValue = task.name.replacingOccurrences(of: "/", with: "-") + ".cadence.json"; panel.allowedContentTypes = [.json]
         guard panel.runModal() == .OK, let url = panel.url else { return }
-        do { try store.write(tasks, at: url) } catch { self.error = error.localizedDescription }
+        do { try store.exportConfig(task, to: url) } catch { self.error = error.localizedDescription }
     }
     func importTasks() {
-        let panel = NSOpenPanel(); panel.allowedContentTypes = [.json]; panel.allowsMultipleSelection = false
-        guard panel.runModal() == .OK, let url = panel.url else { return }
+        let panel = NSOpenPanel(); panel.allowedContentTypes = [.json]; panel.allowsMultipleSelection = true
+        guard panel.runModal() == .OK else { return }
         do {
-            let imported = try store.read([ScheduledTask].self, at: url)
-            // Imports become paused copies. Review before enabling executable content.
-            for var task in imported { task.id = UUID(); task.enabled = false; task.scheduleRevision = UUID(); try task.validate(); try store.save(task) }
+            for url in panel.urls {
+                let data = try Data(contentsOf: url)
+                if (try? JSONSerialization.jsonObject(with: data)) is [Any] {
+                    // Continue accepting exports from the previous aggregate format.
+                    for var task in try store.read([ScheduledTask].self, at: url) {
+                        task.id = UUID(); task.enabled = false; task.scheduleRevision = UUID()
+                        try task.validate(); try store.save(task); selection = task.id
+                    }
+                } else { selection = try store.importConfig(at: url).id }
+            }
             refreshCount = 0; refresh()
         } catch { self.error = error.localizedDescription }
+    }
+    func editConfig(_ url: URL) {
+        let editor = URL(fileURLWithPath: "/System/Applications/TextEdit.app")
+        NSWorkspace.shared.open([url], withApplicationAt: editor, configuration: NSWorkspace.OpenConfiguration()) { [weak self] _, error in
+            if let error { Task { @MainActor in self?.error = error.localizedDescription } }
+        }
     }
 }

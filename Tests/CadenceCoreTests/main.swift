@@ -24,6 +24,14 @@ class CheckCase {
     func cleanup() { for block in teardown.reversed() { block() }; teardown = [] }
 }
 let checks: [(String, (CadenceCoreTests) -> () throws -> Void)] = [
+    ("All workflow kinds round trip through config", CadenceCoreTests.testConfigRoundTripAllKinds),
+    ("One config per flow and external edits", CadenceCoreTests.testOneConfigPerFlowAndExternalEdit),
+    ("Handwritten config import and stable IDs", CadenceCoreTests.testMinimalConfigImportAndStableStepIDs),
+    ("Invalid config isolation and edit conflicts", CadenceCoreTests.testInvalidConfigIsolatedAndConflictsPreserved),
+    ("External schedule edits reset revisions", CadenceCoreTests.testExternalScheduleChangeResetsCursorRevision),
+    ("Duplicate config IDs fail closed", CadenceCoreTests.testDuplicateConfigIDsFailClosed),
+    ("Legacy config migration preserves history", CadenceCoreTests.testLegacyCatalogMigrationPreservesHistory),
+    ("Runner reads external config edits", CadenceCoreTests.testRunnerReadsExternallyEditedDefinition),
     ("Workflow drag reorder boundaries", CadenceCoreTests.testWorkflowReorder),
     ("Legacy interaction migration", CadenceCoreTests.testLegacyInteractionsMigrateOnceWithStableIDs),
     ("Legacy script invocation migration", CadenceCoreTests.testLegacyExecutableKeepsExactArguments),

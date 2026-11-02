@@ -1,0 +1,63 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "Cadence flow",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "schedule", "steps"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "version": {"const": 1, "default": 1},
+    "id": {"type": "string", "format": "uuid"},
+    "name": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "enabled": {"type": "boolean", "default": false},
+    "workingDirectory": {"type": "string", "default": "~"},
+    "environment": {"type": "string"},
+    "missedPolicy": {"enum": ["skip", "latest", "all"], "default": "latest"},
+    "catchUpLimit": {"type": "integer", "minimum": 1, "maximum": 100, "default": 5},
+    "graceSeconds": {"type": "integer", "minimum": 0, "maximum": 3600, "default": 90},
+    "schedule": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "properties": {
+        "kind": {"enum": ["daily", "weekly", "everyDays", "interval", "once"]},
+        "timeZone": {"type": "string", "examples": ["Europe/London", "America/New_York", "UTC"]},
+        "hour": {"type": "integer", "minimum": 0, "maximum": 23, "default": 9},
+        "minute": {"type": "integer", "minimum": 0, "maximum": 59, "default": 0},
+        "every": {"type": "integer", "minimum": 1, "maximum": 10000},
+        "weekdays": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "integer", "minimum": 1, "maximum": 7}},
+        "anchor": {"type": "string", "format": "date-time"}
+      },
+      "allOf": [{"if": {"properties": {"kind": {"enum": ["everyDays", "interval", "once"]}}}, "then": {"required": ["anchor"]}}]
+    },
+    "steps": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["kind"],
+        "properties": {
+          "id": {"type": "string", "format": "uuid"},
+          "name": {"type": "string"},
+          "kind": {"enum": ["shell", "script", "codex", "localLLM", "userInput", "alert", "question", "response"]},
+          "body": {"type": "string", "minLength": 1},
+          "scriptPath": {"type": "string", "minLength": 1},
+          "executable": {"type": "string"},
+          "arguments": {"oneOf": [{"type": "array", "items": {"type": "string", "pattern": "^[^\\n]*$"}}, {"type": "string"}]},
+          "model": {"type": "string"},
+          "endpoint": {"type": "string", "format": "uri"},
+          "sandbox": {"enum": ["read-only", "workspace-write"]},
+          "outputPath": {"type": "string"},
+          "timeoutSeconds": {"type": "integer", "minimum": 1, "maximum": 86400},
+          "continueOnFailure": {"type": "boolean", "default": false}
+        },
+        "allOf": [
+          {"if": {"properties": {"kind": {"const": "script"}}}, "then": {"required": ["scriptPath"]}, "else": {"required": ["body"]}},
+          {"if": {"properties": {"kind": {"const": "localLLM"}}}, "then": {"required": ["model"]}}
+        ]
+      }
+    }
+  }
+}

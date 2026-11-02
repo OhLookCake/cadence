@@ -15,12 +15,12 @@ import AppKit
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("New Task…") { model.create() }.keyboardShortcut("n")
-                Button("Import Tasks…") { model.importTasks() }
-                Button("Export Tasks…") { model.exportTasks() }.disabled(model.tasks.isEmpty)
+                Button("Import Config…") { model.importTasks() }
+                Button("Export Config…") { model.exportTasks() }.disabled(model.selection == nil)
             }
             CommandMenu("Task") {
                 Button("Run Now") { if let task = model.tasks.first(where: { $0.id == model.selection }) { model.runNow(task) } }.keyboardShortcut("r").disabled(model.selection == nil)
-                Button("Refresh") { model.refresh() }.keyboardShortcut("r", modifiers: [.command, .shift])
+                Button("Refresh") { model.refresh(force: true) }.keyboardShortcut("r", modifiers: [.command, .shift])
                 Button("Open Data Folder") { NSWorkspace.shared.open(model.store.root) }
             }
         }
@@ -52,7 +52,7 @@ struct PreferencesView: View {
             Section("Local data") {
                 Text(model.store.root.path).font(.caption.monospaced()).textSelection(.enabled)
                 Button("Open Data Folder") { NSWorkspace.shared.open(model.store.root) }
-                HStack { Button("Export Tasks…") { model.exportTasks() }; Button("Import Tasks…") { model.importTasks() } }
+                HStack { Button("Export Config…") { model.exportTasks() }.disabled(model.selection == nil); Button("Import Config…") { model.importTasks() } }
                 Text("Definitions, environment values, prompts and output are stored locally. Run history remains after deleting a task. Exported definitions include environment values.").font(.caption).foregroundStyle(.secondary)
             }
         }.formStyle(.grouped).padding().frame(width: 540, height: 420)

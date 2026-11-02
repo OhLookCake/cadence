@@ -20,9 +20,10 @@ public final class CadenceStore {
     public let root: URL
     public init(root: URL? = nil) throws {
         self.root = root ?? FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Cadence", isDirectory: true)
-        for directory in [self.root, self.root.appendingPathComponent("runs"), self.root.appendingPathComponent("state")] {
+        for directory in [self.root, self.root.appendingPathComponent("runs"), self.root.appendingPathComponent("state"), self.root.appendingPathComponent("flows"), self.root.appendingPathComponent("metadata")] {
             try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true, attributes: [.posixPermissions: 0o700])
         }
+        try migrateLegacyTasks()
     }
     public func read<T: Decodable>(_ type: T.Type, at url: URL) throws -> T {
         let decoder = JSONDecoder(); decoder.dateDecodingStrategy = .iso8601
@@ -33,19 +34,113 @@ public final class CadenceStore {
         try encoder.encode(value).write(to: url, options: .atomic)
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
-    public func tasks() throws -> [ScheduledTask] {
-        let url = root.appendingPathComponent("tasks.json")
-        return FileManager.default.fileExists(atPath: url.path) ? try read([ScheduledTask].self, at: url) : []
+    public var flowsDirectory: URL { root.appendingPathComponent("flows", isDirectory: true) }
+    public func defaultConfigURL(_ id: UUID) -> URL { flowsDirectory.appendingPathComponent("\(id.uuidString.lowercased()).cadence.json") }
+    private func metadataURL(_ id: UUID) -> URL { root.appendingPathComponent("metadata/\(id.uuidString).json") }
+
+    public func catalog() throws -> FlowCatalog {
+        let lock = try FileLock(url: root.appendingPathComponent("tasks.lock"))
+        defer { withExtendedLifetime(lock) {} }
+        return try catalogUnlocked()
     }
-    public func save(_ task: ScheduledTask) throws {
-        let lock = try FileLock(url: root.appendingPathComponent("tasks.lock")); defer { withExtendedLifetime(lock) {} }
-        var all = try tasks()
-        if let index = all.firstIndex(where: { $0.id == task.id }) { all[index] = task } else { all.append(task) }
-        try write(all, at: root.appendingPathComponent("tasks.json"))
+    public func tasks() throws -> [ScheduledTask] { try catalog().tasks }
+
+    private func catalogUnlocked() throws -> FlowCatalog {
+        let urls = try FileManager.default.contentsOfDirectory(at: flowsDirectory, includingPropertiesForKeys: nil)
+            .filter { $0.pathExtension.lowercased() == "json" && !$0.lastPathComponent.hasPrefix(".") }
+            .sorted { $0.lastPathComponent < $1.lastPathComponent }
+        var result = FlowCatalog()
+        var candidates: [(ScheduledTask, URL)] = []
+        for url in urls {
+            do {
+                let config = try FlowConfig.decode(Data(contentsOf: url))
+                guard let id = config.id else { throw CadenceError.message("A managed config needs an id. Use Import Config to assign one.") }
+                var task = config.task()
+                // An enabled definition must be executable. Paused, incomplete UI drafts remain editable.
+                if task.enabled { try task.validate() }
+                var metadata: FlowMetadata
+                if FileManager.default.fileExists(atPath: metadataURL(id).path) {
+                    metadata = try read(FlowMetadata.self, at: metadataURL(id))
+                    let previousRevision = metadata.revision
+                    if metadata.schedule != task.schedule || (!metadata.enabled && task.enabled) {
+                        metadata.revision = UUID(); metadata.activatedAt = Date()
+                    }
+                    let changed = metadata.schedule != task.schedule || metadata.enabled != task.enabled
+                    metadata.schedule = task.schedule; metadata.enabled = task.enabled
+                    // A revision change also needs to be persisted if the schedule was changed.
+                    if changed || metadata.revision != previousRevision { try write(metadata, at: metadataURL(id)) }
+                } else {
+                    metadata = FlowMetadata(task: task)
+                    try write(metadata, at: metadataURL(id))
+                }
+                task.scheduleRevision = metadata.revision; task.scheduleActivatedAt = metadata.activatedAt; task.createdAt = metadata.createdAt
+                candidates.append((task, url))
+            } catch { result.issues.append(ConfigIssue(url: url, message: error.localizedDescription)) }
+        }
+        let grouped = Dictionary(grouping: candidates, by: { $0.0.id })
+        for (_, group) in grouped {
+            if group.count > 1 {
+                for (_, url) in group { result.issues.append(ConfigIssue(url: url, message: "Duplicate flow id. Each config must have a unique id.")) }
+            } else if let (task, url) = group.first {
+                result.tasks.append(task); result.files[task.id] = url
+            }
+        }
+        result.tasks.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
+        return result
+    }
+
+    public func save(_ task: ScheduledTask, expecting expected: ScheduledTask? = nil, schema: String? = nil) throws {
+        let lock = try FileLock(url: root.appendingPathComponent("tasks.lock"))
+        defer { withExtendedLifetime(lock) {} }
+        let catalog = try catalogUnlocked()
+        if let expected, catalog.tasks.first(where: { $0.id == task.id }) != expected {
+            throw CadenceError.message("The config changed on disk while you were editing. Reload from file before saving to avoid overwriting those changes.")
+        }
+        let url = catalog.files[task.id] ?? defaultConfigURL(task.id)
+        if catalog.files[task.id] == nil && FileManager.default.fileExists(atPath: url.path) {
+            throw CadenceError.message("The existing config is invalid. Fix it before saving this task.")
+        }
+        let existingSchema = catalog.files[task.id].flatMap { try? FlowConfig.decode(Data(contentsOf: $0)).schema }
+        try FlowConfig.encode(task, schema: schema ?? existingSchema).write(to: url, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+        try write(FlowMetadata(task: task), at: metadataURL(task.id))
+    }
+
+    @discardableResult public func importConfig(at url: URL) throws -> ScheduledTask {
+        let config = try FlowConfig.decode(Data(contentsOf: url))
+        var task = config.task(assignedID: UUID())
+        task.enabled = false
+        try task.validate()
+        try save(task, schema: config.schema)
+        guard let imported = try tasks().first(where: { $0.id == task.id }) else { throw CadenceError.message("The imported config could not be loaded.") }
+        return imported
+    }
+    public func exportConfig(_ task: ScheduledTask, to url: URL) throws {
+        try FlowConfig.encode(task).write(to: url, options: .atomic)
     }
     public func delete(_ id: UUID) throws {
-        let lock = try FileLock(url: root.appendingPathComponent("tasks.lock")); defer { withExtendedLifetime(lock) {} }
-        try write(tasks().filter { $0.id != id }, at: root.appendingPathComponent("tasks.json"))
+        let lock = try FileLock(url: root.appendingPathComponent("tasks.lock"))
+        defer { withExtendedLifetime(lock) {} }
+        let catalog = try catalogUnlocked()
+        if let url = catalog.files[id] { try FileManager.default.removeItem(at: url) }
+    }
+    private func migrateLegacyTasks() throws {
+        let legacy = root.appendingPathComponent("tasks.json")
+        guard FileManager.default.fileExists(atPath: legacy.path) else { return }
+        let lock = try FileLock(url: root.appendingPathComponent("tasks.lock"))
+        defer { withExtendedLifetime(lock) {} }
+        guard FileManager.default.fileExists(atPath: legacy.path) else { return }
+        for task in try read([ScheduledTask].self, at: legacy) {
+            let url = defaultConfigURL(task.id)
+            if !FileManager.default.fileExists(atPath: url.path) {
+                try FlowConfig.encode(task).write(to: url, options: .atomic)
+                try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
+                try write(FlowMetadata(task: task), at: metadataURL(task.id))
+            }
+        }
+        let archive = root.appendingPathComponent("legacy", isDirectory: true)
+        try FileManager.default.createDirectory(at: archive, withIntermediateDirectories: true)
+        try FileManager.default.moveItem(at: legacy, to: archive.appendingPathComponent("tasks-\(UUID().uuidString).json"))
     }
     public func stateURL(_ id: UUID) -> URL { root.appendingPathComponent("state/\(id.uuidString).json") }
     public func lockURL(_ id: UUID) -> URL { root.appendingPathComponent("state/\(id.uuidString).lock") }
@@ -73,6 +168,16 @@ public final class CadenceStore {
 }
 
 public enum LaunchAgent {
+    public static func managedIDs() throws -> Set<UUID> {
+        let directory = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents")
+        guard FileManager.default.fileExists(atPath: directory.path) else { return [] }
+        let prefix = "local.cadence.task."
+        return Set(try FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil).compactMap { url in
+            let name = url.deletingPathExtension().lastPathComponent
+            guard url.pathExtension == "plist", name.hasPrefix(prefix) else { return nil }
+            return UUID(uuidString: String(name.dropFirst(prefix.count)))
+        })
+    }
     public static func label(_ id: UUID) -> String { "local.cadence.task.\(id.uuidString.lowercased())" }
     public static func url(_ id: UUID) -> URL {
         FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/LaunchAgents/\(label(id)).plist")

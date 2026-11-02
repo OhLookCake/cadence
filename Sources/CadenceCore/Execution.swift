@@ -253,7 +253,7 @@ public enum TaskRunner {
         }
         if plan.dates.isEmpty && !manual { state.nextDue = plan.nextDue; try store.write(state, at: store.stateURL(id)); return }
         for scheduled in plan.dates {
-            guard let current = try store.tasks().first(where: { $0.id == id }), manual || (current.enabled && current.scheduleRevision == task.scheduleRevision) else { break }
+            guard let current = try store.tasks().first(where: { $0.id == id }), manual || (current.enabled && current == task) else { break }
             if FileManager.default.fileExists(atPath: store.cancelURL(id).path) { break }
             var record = RunRecord(task: task, scheduledAt: scheduled, manual: manual); record.pid = getpid()
             try store.saveRun(record)

@@ -18,6 +18,21 @@ public struct TaskSchedule: Codable, Equatable {
     public var anchor = Date()
     public var timeZone = TimeZone.current.identifier
     public init() {}
+    enum CodingKeys: String, CodingKey { case kind, hour, minute, weekdays, every, anchor, timeZone }
+    public init(from decoder: Decoder) throws {
+        self.init()
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        kind = try c.decode(ScheduleKind.self, forKey: .kind)
+        hour = try c.decodeIfPresent(Int.self, forKey: .hour) ?? 9
+        minute = try c.decodeIfPresent(Int.self, forKey: .minute) ?? 0
+        weekdays = try c.decodeIfPresent([Int].self, forKey: .weekdays) ?? [2, 3, 4, 5, 6]
+        every = try c.decodeIfPresent(Int.self, forKey: .every) ?? 2
+        anchor = try c.decodeIfPresent(Date.self, forKey: .anchor) ?? Date(timeIntervalSince1970: 0)
+        timeZone = try c.decodeIfPresent(String.self, forKey: .timeZone) ?? TimeZone.current.identifier
+        if [.interval, .everyDays, .once].contains(kind) && !c.contains(.anchor) {
+            throw CadenceError.message("This schedule requires an anchor timestamp, for example 2026-11-03T09:00:00Z.")
+        }
+    }
     public var calendar: Calendar {
         var c = Calendar(identifier: .gregorian)
         c.timeZone = TimeZone(identifier: timeZone) ?? .current
@@ -83,6 +98,14 @@ public enum MissedPolicy: String, Codable, CaseIterable, Identifiable {
 }
 public enum StepKind: String, Codable, CaseIterable, Identifiable {
     case shell, script, codex, localLLM, question, response
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.singleValueContainer(); let value = try c.decode(String.self)
+        if value == "userInput" { self = .question }
+        else if value == "alert" { self = .response }
+        else if let kind = StepKind(rawValue: value) { self = kind }
+        else { throw DecodingError.dataCorruptedError(in: c, debugDescription: "Unknown step kind: \(value).") }
+    }
+    public func encode(to encoder: Encoder) throws { var c = encoder.singleValueContainer(); try c.encode(rawValue) }
     public var id: String { rawValue }
     public var title: String {
         switch self { case .shell: return "Inline command"; case .script: return "Script file / executable"; case .codex: return "Codex CLI"; case .localLLM: return "Local LLM (HTTP)"; case .question: return "User input"; case .response: return "Show alert" }
@@ -110,16 +133,19 @@ public struct TaskStep: Codable, Identifiable, Equatable {
         case id, name, kind, body, executable, scriptPath, arguments, model, endpoint, sandbox, outputPath, timeoutSeconds, continueOnFailure
     }
     public init(from decoder: Decoder) throws {
-        self.init()
         let c = try decoder.container(keyedBy: CodingKeys.self)
+        let kind = try c.decodeIfPresent(StepKind.self, forKey: .kind) ?? .shell
+        self = Self.make(kind)
         id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? id
         name = try c.decodeIfPresent(String.self, forKey: .name) ?? name
-        kind = try c.decodeIfPresent(StepKind.self, forKey: .kind) ?? kind
         if (kind == .question && name == "Ask a question") || (kind == .response && name == "Show response") { name = kind.title }
         body = try c.decodeIfPresent(String.self, forKey: .body) ?? body
         executable = try c.decodeIfPresent(String.self, forKey: .executable) ?? executable
         scriptPath = try c.decodeIfPresent(String.self, forKey: .scriptPath) ?? ""
-        arguments = try c.decodeIfPresent(String.self, forKey: .arguments) ?? arguments
+        if let lines = try? c.decode([String].self, forKey: .arguments) {
+            guard !lines.contains(where: { $0.contains("\n") }) else { throw CadenceError.message("A script argument cannot contain a newline.") }
+            arguments = lines.joined(separator: "\n")
+        } else { arguments = try c.decodeIfPresent(String.self, forKey: .arguments) ?? arguments }
         model = try c.decodeIfPresent(String.self, forKey: .model) ?? model
         endpoint = try c.decodeIfPresent(String.self, forKey: .endpoint) ?? endpoint
         sandbox = try c.decodeIfPresent(String.self, forKey: .sandbox) ?? sandbox
@@ -198,10 +224,12 @@ public struct ScheduledTask: Codable, Identifiable, Equatable {
         func require(_ condition: Bool, _ message: String) throws { if !condition { throw CadenceError.message(message) } }
         try require(!name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, "Give the task a name.")
         try require(!steps.isEmpty, "Add at least one step.")
+        try require(Set(steps.map(\.id)).count == steps.count, "Each step needs a unique id.")
         try require(TimeZone(identifier: schedule.timeZone) != nil, "Choose a valid time zone identifier.")
         try require((0...23).contains(schedule.hour) && (0...59).contains(schedule.minute), "Choose a valid time.")
         try require((1...10000).contains(schedule.every), "The repeat interval must be between 1 and 10,000.")
         try require(schedule.kind != .weekly || !schedule.weekdays.isEmpty, "Select at least one weekday.")
+        try require(schedule.weekdays.allSatisfy { (1...7).contains($0) }, "Weekdays must be Sunday=1 through Saturday=7.")
         try require((1...100).contains(catchUpLimit) && (0...3600).contains(graceSeconds), "Check the catch-up limit and grace period.")
         var directory: ObjCBool = false
         try require(FileManager.default.fileExists(atPath: (workingDirectory as NSString).expandingTildeInPath, isDirectory: &directory) && directory.boolValue, "The working directory does not exist.")
@@ -214,6 +242,7 @@ public struct ScheduledTask: Codable, Identifiable, Equatable {
             if step.kind != .script { try require(!step.body.isEmpty, "A command, prompt, or message is empty.") }
             if step.kind == .script { try require(!step.scriptPath.isEmpty, "Choose a script file or executable.") }
             if step.kind == .codex { try require(!step.executable.isEmpty, "Specify the Codex executable.") }
+            if step.kind == .codex { try require(["read-only", "workspace-write"].contains(step.sandbox), "Codex sandbox must be read-only or workspace-write.") }
             if step.kind == .localLLM {
                 try require(!step.model.isEmpty, "Enter the local model name.")
                 try require(URL(string: step.endpoint)?.host != nil && ["http", "https"].contains(URL(string: step.endpoint)?.scheme ?? ""), "Enter a complete HTTP endpoint.")

@@ -88,14 +88,16 @@ Before side effects, each occurrence is claimed durably. If the runner crashes o
 
 ```text
 ~/Library/Application Support/Cadence/
-  tasks.json              Task definitions
+  flows/<UUID>.cadence.json  One editable config per task
+  metadata/                 Schedule activation metadata
+  legacy/                   Archived pre-migration catalog
   state/                  Durable schedule cursors, locks, cancellation requests
   runs/<run UUID>/         Run metadata, stdout, stderr, inputs, and captured answers
 ```
 
 Definitions are written atomically under a file lock. The data root is private to the user. Environment values, prompts, question answers, and outputs are local plaintext; exported definitions include environment values. Use your scripts and Keychain for secrets when possible. Log retention is manual in this version; there is no automatic history deletion.
 
-**File → Export Tasks** saves definitions. **Import Tasks** makes paused copies with new IDs. Import does not run them. Deleting a task removes its schedule and definition while retaining run history and output.
+**File → Import Config…** creates paused tasks from individual JSON files. **Export Config…** exports the selected task in the same format. The task’s **Config file** section opens its source file for editing. External edits reload automatically, with protection for unsaved UI changes. See [the format and examples](docs/flow-config.md). Deleting a task removes its schedule and config while retaining history.
 
 ## Build & verify
 

@@ -45,8 +45,11 @@ struct ContentView: View {
                 }.padding(20)
             }.navigationSplitViewColumnWidth(min: 240, ideal: 260, max: 320)
         } detail: {
+            VStack(spacing: 0) {
+            if !model.configIssues.isEmpty || !model.registrationIssues.isEmpty { ConfigHealthBanner() }
             if let task = model.tasks.first(where: { $0.id == model.selection }) { TaskDetailView(task: task).id(task.id) }
             else { DashboardView() }
+            }
         }
         .toolbar {
             ToolbarItem(placement: .primaryAction) { Button { model.create() } label: { Label("New Task", systemImage: "plus") }.help("New Task (⌘N)") }
@@ -145,11 +148,12 @@ struct TaskDetailView: View {
     @EnvironmentObject var model: AppModel
     let task: ScheduledTask
     @State private var draft: ScheduledTask
+    @State private var baseTask: ScheduledTask
     @State private var selectedRun: RunRecord?
     @State private var confirmDelete = false
     @State private var showAllRuns = false
     @State private var missedRunsExpanded = true
-    init(task: ScheduledTask) { self.task = task; _draft = State(initialValue: task) }
+    init(task: ScheduledTask) { self.task = task; _draft = State(initialValue: task); _baseTask = State(initialValue: task) }
     var dirty: Bool { draft != task }
     var taskRuns: [RunRecord] { model.runs.filter { $0.taskID == task.id } }
     var previews: [Date] {
@@ -161,6 +165,12 @@ struct TaskDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 24) {
                 header
+                if dirty && baseTask != task {
+                    HStack {
+                        Label("This config changed on disk while you were editing.", systemImage: "exclamationmark.triangle")
+                        Spacer(); Button("Reload from file") { reloadFromDisk() }
+                    }.font(.caption).padding(12).background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
+                }
                 if task.enabled && !model.agentIDs.contains(task.id) {
                     HStack { Label("Schedule is not registered with launchd.", systemImage: "exclamationmark.triangle"); Spacer(); Button("Repair") { model.repair(task) } }
                         .font(.caption).padding(12).background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
@@ -178,6 +188,17 @@ struct TaskDetailView: View {
                     CadenceCard(title: "Working directory", symbol: "folder") { WorkingDirectoryFields(task: $draft) }
                     CadenceCard(title: "Environment", symbol: "terminal") { EnvironmentFields(task: $draft) }
                 }.disabled(model.isRunning(task))
+                if let url = model.configFiles[task.id] {
+                    CadenceCard(title: "Config file", symbol: "doc.text") {
+                        Text(url.path).font(.caption.monospaced()).textSelection(.enabled)
+                        Text("This file is the task’s source of truth. External edits appear automatically; save changes here to update the same file.").font(.caption).foregroundStyle(.secondary)
+                        HStack {
+                            Button("Edit Config File…") { model.editConfig(url) }
+                            Button("Show in Finder") { NSWorkspace.shared.selectFile(url.path, inFileViewerRootedAtPath: "") }
+                            Button("Export Config…") { model.exportTasks() }.disabled(dirty)
+                        }
+                    }
+                }
                 CadenceCard(title: "Available variables", symbol: "curlybraces") {
                     Text("{{date}}  {{timestamp}}  {{unix}}\n{{scheduled_date}}  {{scheduled_timestamp}}\n{{input}}  {{previous_output}}  {{previous_output_file}}")
                         .font(.system(size: 11, design: .monospaced)).textSelection(.enabled)
@@ -195,14 +216,18 @@ struct TaskDetailView: View {
                 HStack {
                     Text(dirty ? "Unsaved changes" : "All changes saved").font(.caption).foregroundStyle(dirty ? Color.orange : .secondary)
                     Spacer()
-                    Button("Revert") { draft = task }.disabled(!dirty)
+                    Button("Revert") { reloadFromDisk() }.disabled(!dirty)
                     Button("Save Changes") { save() }.buttonStyle(.borderedProminent).keyboardShortcut("s")
                         .disabled(!dirty || model.isRunning(task))
                 }.padding(.horizontal, 28).padding(.vertical, 14).background(.bar)
             }
-            .onAppear { draft = model.drafts[task.id] ?? task }
-            .onChange(of: draft) { _, value in model.drafts[task.id] = value == task ? nil : value }
-            .onChange(of: task) { old, new in if draft == old { draft = new } }
+            .onAppear { baseTask = model.draftBases[task.id] ?? task; draft = model.drafts[task.id] ?? task }
+            .onChange(of: draft) { _, value in
+                model.drafts[task.id] = value == task ? nil : value
+                model.draftBases[task.id] = value == task ? nil : baseTask
+                if value == task { baseTask = task }
+            }
+            .onChange(of: task) { old, new in if draft == old { baseTask = new; draft = new } }
             .sheet(item: $selectedRun) { run in RunLogView(run: run).environmentObject(model) }
             .confirmationDialog("Delete \(task.name)?", isPresented: $confirmDelete) {
                 Button("Delete Task", role: .destructive) { model.remove(task) }
@@ -242,6 +267,8 @@ struct TaskDetailView: View {
                 Text("Edit any field below, then save.").font(.caption).foregroundStyle(.secondary)
                 Spacer()
                 Menu {
+                    if let url = model.configFiles[task.id] { Button("Edit Config File…") { model.editConfig(url) } }
+                    Button("Export Config…") { model.exportTasks() }.disabled(dirty)
                     Button("Duplicate") { model.duplicate(task) }.disabled(dirty)
                     Button("Repair Schedule") { model.repair(task) }
                     Button("Show LaunchAgent") { NSWorkspace.shared.selectFile(LaunchAgent.url(task.id).path, inFileViewerRootedAtPath: "") }
@@ -253,10 +280,16 @@ struct TaskDetailView: View {
     }
     func save() {
         do {
-            try model.save(draft)
+            try model.save(draft, expecting: baseTask)
             draft = model.tasks.first(where: { $0.id == task.id }) ?? draft
+            baseTask = draft
             model.drafts.removeValue(forKey: task.id)
+            model.draftBases.removeValue(forKey: task.id)
         } catch { model.error = error.localizedDescription }
+    }
+    func reloadFromDisk() {
+        baseTask = task; draft = task
+        model.drafts.removeValue(forKey: task.id); model.draftBases.removeValue(forKey: task.id)
     }
     func runRow(_ run: RunRecord) -> some View {
         Button { selectedRun = run } label: {
