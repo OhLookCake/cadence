@@ -58,11 +58,18 @@ struct ContentView: View {
 struct CadenceCard<Content: View>: View {
     var title: String
     var symbol: String
+    @State private var expanded = true
     @ViewBuilder var content: Content
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Label(title.uppercased(), systemImage: symbol).font(.system(size: 10, weight: .semibold)).tracking(1.2).foregroundStyle(.secondary)
-            content
+            Button { expanded.toggle() } label: {
+                HStack {
+                    Label(title.uppercased(), systemImage: symbol).font(.system(size: 10, weight: .semibold)).tracking(1.2)
+                    Spacer()
+                    Image(systemName: expanded ? "chevron.down" : "chevron.right").font(.system(size: 11, weight: .semibold))
+                }.foregroundStyle(.secondary).contentShape(Rectangle())
+            }.buttonStyle(.plain).accessibilityLabel((expanded ? "Collapse " : "Expand ") + title)
+            if expanded { content }
         }.frame(maxWidth: .infinity, alignment: .leading).padding(22)
             .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
             .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.055)))
@@ -168,7 +175,8 @@ struct TaskDetailView: View {
                         if !draft.enabled { Text("Schedule preview · task is paused").font(.caption).foregroundStyle(.secondary) }
                     }
                     WorkflowEditor(task: $draft)
-                    CadenceCard(title: "Working directory & environment", symbol: "folder") { GeneralFields(task: $draft) }
+                    CadenceCard(title: "Working directory", symbol: "folder") { WorkingDirectoryFields(task: $draft) }
+                    CadenceCard(title: "Environment", symbol: "terminal") { EnvironmentFields(task: $draft) }
                 }.disabled(model.isRunning(task))
                 CadenceCard(title: "Available variables", symbol: "curlybraces") {
                     Text("{{date}}  {{timestamp}}  {{unix}}\n{{scheduled_date}}  {{scheduled_timestamp}}\n{{input}}  {{previous_output}}  {{previous_output_file}}")

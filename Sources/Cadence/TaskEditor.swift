@@ -108,7 +108,7 @@ struct MissedRunFields: View {
         }
     }
 }
-struct GeneralFields: View {
+struct WorkingDirectoryFields: View {
     @Binding var task: ScheduledTask
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -120,6 +120,13 @@ struct GeneralFields: View {
                 }.fixedSize()
             }
             Text("All steps run from this directory.").font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+struct EnvironmentFields: View {
+    @Binding var task: ScheduledTask
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
             Text("Environment variables · one KEY=value per line").font(.caption).foregroundStyle(.secondary)
             CodeField(text: $task.environment, height: 75, label: "Environment variables")
             Text("PATH includes Homebrew and system tools. Values are stored in the local task definition.").font(.caption).foregroundStyle(.secondary)
@@ -129,16 +136,25 @@ struct GeneralFields: View {
 
 struct WorkflowEditor: View {
     @Binding var task: ScheduledTask
+    @State private var expanded = true
+    @State private var collapsedSteps: Set<UUID> = []
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
                 VStack(alignment: .leading, spacing: 5) {
-                    Text("Workflow").font(.system(size: 22, weight: .semibold, design: .rounded))
+                    Button { expanded.toggle() } label: {
+                        HStack(spacing: 10) {
+                            Image(systemName: expanded ? "chevron.down" : "chevron.right").font(.system(size: 13, weight: .semibold))
+                            Text("Workflow").font(.system(size: 22, weight: .semibold, design: .rounded))
+                            Text("\(task.steps.count) steps").font(.caption).foregroundStyle(.secondary)
+                        }.contentShape(Rectangle())
+                    }.buttonStyle(.plain).accessibilityLabel(expanded ? "Collapse Workflow" : "Expand Workflow")
                     Text("Follow the chain from start to finish. Each step can pass its output to the next.").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 addMenu
             }
+            if expanded {
             WorkflowBoundary(title: "Start", symbol: "play.fill")
             ForEach($task.steps) { $step in
                 let index = task.steps.firstIndex(where: { $0.id == step.id }) ?? 0
@@ -149,12 +165,18 @@ struct WorkflowEditor: View {
                         Image(systemName: step.kind.symbol).foregroundStyle(Color.cadence)
                         TextField("Step name", text: $step.name).font(.system(size: 16, weight: .medium)).textFieldStyle(.plain).accessibilityLabel("Step \(index + 1) name")
                         Spacer()
+                        Button { toggleStep(step.id) } label: {
+                            Image(systemName: collapsedSteps.contains(step.id) ? "chevron.right" : "chevron.down")
+                        }.help(collapsedSteps.contains(step.id) ? "Expand step" : "Collapse step")
+                            .accessibilityLabel((collapsedSteps.contains(step.id) ? "Expand " : "Collapse ") + step.name)
                         Button { move(step.id, -1) } label: { Image(systemName: "arrow.up") }.disabled(index == 0).help("Move step up")
                         Button { move(step.id, 1) } label: { Image(systemName: "arrow.down") }.disabled(index == task.steps.count - 1).help("Move step down")
                         Button(role: .destructive) { task.steps.removeAll { $0.id == step.id } } label: { Image(systemName: "trash") }.help("Remove step")
                     }.buttonStyle(.borderless)
-                    Divider().overlay(Color.cadence.opacity(0.15))
-                    StepFields(step: $step)
+                    if !collapsedSteps.contains(step.id) {
+                        Divider().overlay(Color.cadence.opacity(0.15))
+                        StepFields(step: $step)
+                    }
                 }.padding(20).background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
                     .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.cadence.opacity(0.35), lineWidth: 1.5))
                 if index < task.steps.count - 1 { WorkflowConnector() }
@@ -162,17 +184,21 @@ struct WorkflowEditor: View {
             if task.steps.isEmpty { Text("Add a step to define what this task does.").foregroundStyle(.secondary).padding(.vertical, 15) }
             WorkflowBoundary(title: "End", symbol: "checkmark")
             addMenu
+            }
         }.padding(20).background(Color.cadence.opacity(0.045), in: RoundedRectangle(cornerRadius: 18))
             .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.cadence.opacity(0.15)))
     }
     var addMenu: some View {
-        Menu { ForEach(StepKind.allCases) { kind in Button { task.steps.append(TaskStep.make(kind)) } label: { Label(kind.title, systemImage: kind.symbol) } } } label: {
+        Menu { ForEach(StepKind.allCases) { kind in Button { task.steps.append(TaskStep.make(kind)); expanded = true } label: { Label(kind.title, systemImage: kind.symbol) } } } label: {
             Label("Add Step", systemImage: "plus")
         }.fixedSize()
     }
     func move(_ id: UUID, _ direction: Int) {
         guard let index = task.steps.firstIndex(where: { $0.id == id }), task.steps.indices.contains(index + direction) else { return }
         task.steps.swapAt(index, index + direction)
+    }
+    func toggleStep(_ id: UUID) {
+        if collapsedSteps.contains(id) { collapsedSteps.remove(id) } else { collapsedSteps.insert(id) }
     }
 }
 struct WorkflowBoundary: View {
