@@ -10,8 +10,9 @@ import AppKit
                 .frame(minWidth: 1020, minHeight: 720)
                 .tint(Color.cadence)
         }
-        .defaultSize(width: 1220, height: 820)
+        .defaultSize(width: 1360, height: 900)
         .windowStyle(.titleBar)
+        .windowToolbarStyle(.unifiedCompact)
         .commands {
             CommandGroup(replacing: .newItem) {
                 Button("New Task…") { model.create() }.keyboardShortcut("n")
@@ -35,7 +36,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 }
 extension Color {
-    static let cadence = Color(red: 0.17, green: 0.43, blue: 0.40)
+    static let cadence = Color(nsColor: NSColor(name: nil) { appearance in
+        appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            ? NSColor(srgbRed: 0.38, green: 0.73, blue: 0.67, alpha: 1)
+            : NSColor(srgbRed: 0.17, green: 0.43, blue: 0.40, alpha: 1)
+    })
     static let canvas = Color(nsColor: .windowBackgroundColor)
     static let subdued = Color.secondary
 }

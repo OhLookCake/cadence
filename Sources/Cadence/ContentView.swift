@@ -17,7 +17,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 10) {
                     Image(systemName: "clock.arrow.circlepath").font(.system(size: 26, weight: .medium)).foregroundStyle(Color.cadence)
-                    VStack(alignment: .leading, spacing: 3) { Text("Cadence").font(.headline); Text("LOCAL AUTOMATION").font(.system(size: 9, weight: .semibold, design: .rounded)).tracking(1.6).foregroundStyle(.secondary) }
+                    VStack(alignment: .leading, spacing: 3) { Text("Cadence").font(.headline); Text("ON THIS MAC").font(.system(size: 9, weight: .semibold, design: .rounded)).tracking(1.6).foregroundStyle(.secondary) }
                 }.padding(.horizontal, 18).padding(.vertical, 22)
                 Button { model.selection = nil } label: {
                     HStack { Label("Overview", systemImage: "square.grid.2x2"); Spacer(); Text("\(model.tasks.count)").foregroundStyle(.secondary) }.padding(10)
@@ -43,7 +43,7 @@ struct ContentView: View {
                     Label("Powered by launchd", systemImage: "desktopcomputer").font(.caption).foregroundStyle(.secondary)
                     Text("Runs locally, even with this window closed.").font(.system(size: 10)).foregroundStyle(.tertiary)
                 }.padding(20)
-            }.navigationSplitViewColumnWidth(min: 240, ideal: 260, max: 320)
+            }.navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 340)
         } detail: {
             VStack(spacing: 0) {
             if !model.configIssues.isEmpty || !model.registrationIssues.isEmpty { ConfigHealthBanner() }
@@ -52,7 +52,7 @@ struct ContentView: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .primaryAction) { Button { model.create() } label: { Label("New Task", systemImage: "plus") }.help("New Task (⌘N)") }
+            ToolbarItem(placement: .primaryAction) { Button { model.create() } label: { Label("New Task", systemImage: "plus") }.buttonStyle(.borderedProminent).help("New Task (⌘N)") }
         }
         .alert("Cadence", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(model.error ?? "") }
     }
@@ -61,21 +61,29 @@ struct ContentView: View {
 struct CadenceCard<Content: View>: View {
     var title: String
     var symbol: String
-    @State private var expanded = true
-    @ViewBuilder var content: Content
+    var summary: String?
+    @AppStorage private var expanded: Bool
+    var content: Content
+    init(title: String, symbol: String, storageKey: String? = nil, summary: String? = nil,
+         initiallyExpanded: Bool = true, @ViewBuilder content: () -> Content) {
+        self.title = title; self.symbol = symbol; self.summary = summary; self.content = content()
+        _expanded = AppStorage(wrappedValue: initiallyExpanded, "cadence.section.\(storageKey ?? title)")
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             Button { expanded.toggle() } label: {
-                HStack {
-                    Label(title.uppercased(), systemImage: symbol).font(.system(size: 10, weight: .semibold)).tracking(1.2)
-                    Spacer()
-                    Image(systemName: expanded ? "chevron.down" : "chevron.right").font(.system(size: 11, weight: .semibold))
-                }.foregroundStyle(.secondary).contentShape(Rectangle())
+                HStack(spacing: 9) {
+                    Image(systemName: symbol).font(.system(size: 14)).foregroundStyle(Color.cadence).frame(width: 18)
+                    Text(title).font(.system(size: 13, weight: .semibold))
+                    Spacer(minLength: 8)
+                    if !expanded, let summary { Text(summary).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
+                    Image(systemName: expanded ? "chevron.down" : "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                }.contentShape(Rectangle()).padding(.vertical, 2)
             }.buttonStyle(.plain).accessibilityLabel((expanded ? "Collapse " : "Expand ") + title)
             if expanded { content }
-        }.frame(maxWidth: .infinity, alignment: .leading).padding(22)
-            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.055)).allowsHitTesting(false))
+        }.frame(maxWidth: .infinity, alignment: .leading).padding(20)
+            .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.09)).allowsHitTesting(false))
     }
 }
 struct StatusBadge: View {
@@ -92,8 +100,8 @@ struct DashboardView: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 9) {
                         Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()).uppercased()).font(.system(size: 10, weight: .medium)).tracking(1.5).foregroundStyle(.secondary)
-                        Text("Your Mac, on schedule.").font(.system(size: 32, weight: .semibold, design: .rounded))
-                        Text("Scripts, workflows, and AI. In their own time.").font(.system(size: 14)).foregroundStyle(.secondary)
+                        Text("Your task workspace").font(.system(size: 32, weight: .semibold, design: .rounded))
+                        Text("Schedules, workflows, and recent activity on this Mac.").font(.system(size: 14)).foregroundStyle(.secondary)
                     }
                     Spacer()
                     Image(systemName: "clock.badge.checkmark").font(.system(size: 48, weight: .ultraLight)).foregroundStyle(Color.cadence).padding(.trailing, 10)
@@ -133,7 +141,7 @@ struct DashboardView: View {
                     } }
                 }
                 HStack { Image(systemName: "moon.zzz"); Text("Missed a window? Each task decides whether to skip, catch up once, or replay its backlog.") }.font(.system(size: 11)).foregroundStyle(.secondary)
-            }.padding(32).frame(maxWidth: 1100)
+            }.padding(28).frame(maxWidth: 1760).frame(maxWidth: .infinity)
         }.navigationTitle("Overview").background(Color.canvas)
     }
     func metric(_ title: String, value: Int, symbol: String, color: Color) -> some View {
@@ -153,119 +161,96 @@ struct TaskDetailView: View {
     @State private var confirmDelete = false
     @State private var showAllRuns = false
     @State private var missedRunsExpanded = true
-    init(task: ScheduledTask) { self.task = task; _draft = State(initialValue: task); _baseTask = State(initialValue: task) }
+
+    init(task: ScheduledTask) {
+        self.task = task
+        _draft = State(initialValue: task); _baseTask = State(initialValue: task)
+    }
     var dirty: Bool { draft != task }
+    var conflict: Bool { dirty && baseTask != task }
+    var running: Bool { model.isRunning(task) }
     var taskRuns: [RunRecord] { model.runs.filter { $0.taskID == task.id } }
+    var nextOccurrence: Date? { dirty ? draft.schedule.next(after: Date()) : model.nextDue(task) }
     var previews: [Date] {
         var dates: [Date] = [], cursor = Date()
         for _ in 0..<3 { guard let next = draft.schedule.next(after: cursor) else { break }; dates.append(next); cursor = next }
         return dates
     }
+    func sectionKey(_ key: String) -> String { "\(task.id.uuidString).\(key)" }
+
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 24) {
-                header
-                if dirty && baseTask != task {
-                    HStack {
-                        Label("This config changed on disk while you were editing.", systemImage: "exclamationmark.triangle")
-                        Spacer(); Button("Reload from file") { reloadFromDisk() }
-                    }.font(.caption).padding(12).background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
-                }
-                if task.enabled && !model.agentIDs.contains(task.id) {
-                    HStack { Label("Schedule is not registered with launchd.", systemImage: "exclamationmark.triangle"); Spacer(); Button("Repair") { model.repair(task) } }
-                        .font(.caption).padding(12).background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
-                }
-                Group {
-                    CadenceCard(title: "Schedule", symbol: "calendar") {
-                        ScheduleConfiguration(task: $draft, missedRunsExpanded: $missedRunsExpanded)
+        GeometryReader { geometry in
+            let wide = geometry.size.width >= 1120
+            ScrollView {
+                VStack(alignment: .leading, spacing: 24) {
+                    header
+                    if conflict { conflictBanner }
+                    if task.enabled && !model.agentIDs.contains(task.id) { registrationBanner }
+                    CadenceCard(title: "Schedule", symbol: "calendar", storageKey: sectionKey("schedule"), summary: draft.schedule.summary) {
+                        ScheduleConfiguration(task: $draft, missedRunsExpanded: $missedRunsExpanded).disabled(running)
                     }
-                    CadenceCard(title: "Next occurrences", symbol: "clock") {
-                        if previews.isEmpty { Text("No future occurrences for this schedule.").font(.caption).foregroundStyle(.secondary) }
-                        ForEach(previews, id: \.self) { date in Text(draft.schedule.formatted(date)).font(.caption.monospaced()) }
-                        if !draft.enabled { Text("Schedule preview · task is paused").font(.caption).foregroundStyle(.secondary) }
-                    }
-                    WorkflowEditor(task: $draft)
-                    CadenceCard(title: "Working directory", symbol: "folder") { WorkingDirectoryFields(task: $draft) }
-                    CadenceCard(title: "Environment", symbol: "terminal") { EnvironmentFields(task: $draft) }
-                }.disabled(model.isRunning(task))
-                if let url = model.configFiles[task.id] {
-                    CadenceCard(title: "Config file", symbol: "doc.text") {
-                        Text(url.path).font(.caption.monospaced()).textSelection(.enabled)
-                        Text("This file is the task’s source of truth. External edits appear automatically; save changes here to update the same file.").font(.caption).foregroundStyle(.secondary)
-                        HStack {
-                            Button("Edit Config File…") { model.editConfig(url) }
-                            Button("Show in Finder") { NSWorkspace.shared.selectFile(url.path, inFileViewerRootedAtPath: "") }
-                            Button("Export Config…") { model.exportTasks() }.disabled(dirty)
+                    if wide {
+                        HStack(alignment: .top, spacing: 24) {
+                            primaryColumn.frame(maxWidth: .infinity, alignment: .topLeading)
+                            contextColumn.frame(width: 320, alignment: .topLeading)
                         }
+                    } else {
+                        primaryColumn
+                        contextColumn
                     }
                 }
-                CadenceCard(title: "Available variables", symbol: "curlybraces") {
-                    Text("{{date}}  {{timestamp}}  {{unix}}\n{{scheduled_date}}  {{scheduled_timestamp}}\n{{input}}  {{previous_output}}  {{previous_output_file}}")
-                        .font(.system(size: 11, design: .monospaced)).textSelection(.enabled)
-                    Text("Use placeholders in script arguments, prompts, messages, and output paths. Inline commands use quoted $TASK_DATE, $TASK_SCHEDULED_DATE, $TASK_INPUT, $TASK_PREVIOUS_OUTPUT and the corresponding TASK_ variables. For large output, read $TASK_PREVIOUS_OUTPUT_FILE.")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                CadenceCard(title: "Run history (\(taskRuns.count))", symbol: "clock.arrow.circlepath") {
-                    if taskRuns.isEmpty { Text("No runs yet. Save this task, then run it now or enable its schedule.").font(.caption).foregroundStyle(.secondary) }
-                    ForEach(Array(taskRuns.prefix(showAllRuns ? 250 : 5))) { run in runRow(run) }
-                    if taskRuns.count > 5 { Button(showAllRuns ? "Show recent runs" : "Show more history") { showAllRuns.toggle() } }
-                }
-            }.padding(28).frame(maxWidth: 1100)
-        }.navigationTitle(task.name).background(Color.canvas)
-            .safeAreaInset(edge: .bottom, spacing: 0) {
-                HStack {
-                    Text(dirty ? "Unsaved changes" : "All changes saved").font(.caption).foregroundStyle(dirty ? Color.orange : .secondary)
-                    Spacer()
-                    Button("Revert") { reloadFromDisk() }.disabled(!dirty)
-                    Button("Save Changes") { save() }.buttonStyle(.borderedProminent).keyboardShortcut("s")
-                        .disabled(!dirty || model.isRunning(task))
-                }.padding(.horizontal, 28).padding(.vertical, 14).background(.bar)
+                .padding(wide ? 32 : 24)
+                .frame(maxWidth: 1760)
+                .frame(maxWidth: .infinity, alignment: .center)
             }
-            .onAppear { baseTask = model.draftBases[task.id] ?? task; draft = model.drafts[task.id] ?? task }
-            .onChange(of: draft) { _, value in
-                model.drafts[task.id] = value == task ? nil : value
-                model.draftBases[task.id] = value == task ? nil : baseTask
-                if value == task { baseTask = task }
-            }
-            .onChange(of: task) { old, new in if draft == old { baseTask = new; draft = new } }
-            .sheet(item: $selectedRun) { run in RunLogView(run: run).environmentObject(model) }
-            .confirmationDialog("Delete \(task.name)?", isPresented: $confirmDelete) {
-                Button("Delete Task", role: .destructive) { model.remove(task) }
-            } message: { Text("Its launchd schedule will be removed. Existing run history and output files will be retained.") }
+            .safeAreaInset(edge: .bottom, spacing: 0) { saveBar }
+        }
+        .navigationTitle(task.name).background(Color.canvas)
+        .onAppear { baseTask = model.draftBases[task.id] ?? task; draft = model.drafts[task.id] ?? task }
+        .onChange(of: draft) { _, value in
+            model.drafts[task.id] = value == task ? nil : value
+            model.draftBases[task.id] = value == task ? nil : baseTask
+            if value == task { baseTask = task }
+        }
+        .onChange(of: task) { old, new in if draft == old { baseTask = new; draft = new } }
+        .sheet(item: $selectedRun) { run in RunLogView(run: run).environmentObject(model) }
+        .confirmationDialog("Delete \(task.name)?", isPresented: $confirmDelete) {
+            Button("Delete Task", role: .destructive) { model.remove(task) }
+        } message: { Text("Its config and launchd schedule will be removed. Run history and output files will be retained.") }
     }
+
     var header: some View {
-        VStack(alignment: .leading, spacing: 18) {
-            HStack {
-                StatusBadge(title: model.isRunning(task) ? "Running" : (task.enabled ? "Enabled" : "Paused"),
-                            color: model.isRunning(task) ? .orange : (task.enabled ? .cadence : .secondary))
-                Text("\(draft.steps.count) steps").font(.caption).foregroundStyle(.secondary)
-                Spacer()
-                Toggle("Enable schedule", isOn: $draft.enabled).toggleStyle(.switch).fixedSize().disabled(model.isRunning(task))
+        VStack(alignment: .leading, spacing: 20) {
+            HStack(alignment: .top, spacing: 18) {
+                Image(systemName: "point.3.connected.trianglepath.dotted")
+                    .font(.system(size: 25, weight: .medium)).foregroundStyle(Color.cadence)
+                    .frame(width: 52, height: 52).background(Color.cadence.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
+                    .padding(.top, 22)
+                VStack(alignment: .leading, spacing: 14) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Task name").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                        TextField("Name this task", text: $draft.name)
+                            .font(.system(size: 22, weight: .semibold)).textFieldStyle(.roundedBorder)
+                            .controlSize(.large).accessibilityLabel("Task name")
+                    }
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Description").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                        TextField("Describe what this task does…", text: $draft.notes, axis: .vertical)
+                            .lineLimit(2...4).font(.system(size: 13)).textFieldStyle(.roundedBorder)
+                            .accessibilityLabel("Task description")
+                    }
+                }.disabled(running)
             }
-            VStack(alignment: .leading, spacing: 8) {
-                Label("Task name", systemImage: "pencil").font(.caption).foregroundStyle(.secondary)
-                TextField("Name this task", text: $draft.name)
-                    .font(.system(size: 24, weight: .semibold, design: .rounded))
-                    .textFieldStyle(.plain).padding(12)
-                    .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.18)).allowsHitTesting(false))
-                    .accessibilityLabel("Task name")
-            }.disabled(model.isRunning(task))
-            VStack(alignment: .leading, spacing: 8) {
-                Label("Description", systemImage: "text.alignleft").font(.caption).foregroundStyle(.secondary)
-                TextField("Describe what this task does…", text: $draft.notes, axis: .vertical)
-                    .lineLimit(2...5).font(.system(size: 13)).textFieldStyle(.plain).padding(12)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
-                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.18)).allowsHitTesting(false))
-                    .accessibilityLabel("Task description")
-            }.disabled(model.isRunning(task))
-            HStack {
+            HStack(spacing: 14) {
                 Button { model.runNow(task) } label: { Label("Run Now", systemImage: "play.fill") }
-                    .buttonStyle(.borderedProminent).disabled(dirty || model.isRunning(task)).help(dirty ? "Save changes before running" : "Run this task now")
-                if model.isRunning(task) { Button("Stop", role: .destructive) { model.cancel(task) } }
-                Text("Edit any field below, then save.").font(.caption).foregroundStyle(.secondary)
-                Spacer()
+                    .buttonStyle(.borderedProminent).controlSize(.large).disabled(dirty || running)
+                    .help(dirty ? "Save changes before running" : "Run this task now")
+                if running { Button("Stop", role: .destructive) { model.cancel(task) } }
+                StatusBadge(title: running ? "Running" : (task.enabled ? "Enabled" : "Paused"),
+                            color: running ? .orange : (task.enabled ? .cadence : .secondary))
+                Text("\(draft.steps.count) steps").font(.caption).foregroundStyle(.secondary)
+                Spacer(minLength: 8)
+                Toggle("Enable schedule", isOn: $draft.enabled).toggleStyle(.switch).fixedSize().disabled(running)
                 Menu {
                     if let url = model.configFiles[task.id] { Button("Edit Config File…") { model.editConfig(url) } }
                     Button("Export Config…") { model.exportTasks() }.disabled(dirty)
@@ -274,17 +259,110 @@ struct TaskDetailView: View {
                     Button("Show LaunchAgent") { NSWorkspace.shared.selectFile(LaunchAgent.url(task.id).path, inFileViewerRootedAtPath: "") }
                     Divider()
                     Button("Delete Task…", role: .destructive) { confirmDelete = true }
-                } label: { Image(systemName: "ellipsis") }.fixedSize()
+                } label: { Image(systemName: "ellipsis").frame(width: 20, height: 20) }.fixedSize().help("Task actions")
             }
-        }.padding(.top, 12)
+        }
+    }
+
+    var primaryColumn: some View {
+        VStack(alignment: .leading, spacing: 24) {
+            WorkflowEditor(task: $draft).disabled(running)
+            CadenceCard(title: "Run history", symbol: "clock.arrow.circlepath", storageKey: sectionKey("history"), summary: "\(taskRuns.count) runs") {
+                if taskRuns.isEmpty {
+                    Label("No runs yet. Enable its schedule or run this task now.", systemImage: "clock")
+                        .font(.callout).foregroundStyle(.secondary).padding(.vertical, 12)
+                }
+                ForEach(Array(taskRuns.prefix(showAllRuns ? 250 : 5))) { run in
+                    runRow(run)
+                    if run.id != taskRuns.prefix(showAllRuns ? 250 : 5).last?.id { Divider() }
+                }
+                if taskRuns.count > 5 { Button(showAllRuns ? "Show recent runs" : "Show more history") { showAllRuns.toggle() } }
+            }
+        }
+    }
+    var contextColumn: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            CadenceCard(title: "Next occurrence", symbol: "clock", storageKey: sectionKey("next")) {
+                if let next = nextOccurrence {
+                    Text(draft.schedule.formatted(next)).font(.system(size: 15, weight: .medium)).fixedSize(horizontal: false, vertical: true)
+                    if !draft.enabled { StatusBadge(title: "Preview · paused", color: .secondary) }
+                    else if next < Date() { StatusBadge(title: "Catch-up pending", color: .orange) }
+                    else { Text(next, style: .relative).font(.caption).foregroundStyle(.secondary) }
+                    Divider()
+                    ForEach(Array(previews.dropFirst()), id: \.self) { date in
+                        Text(draft.schedule.formatted(date)).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
+                    }
+                } else { Text("No future occurrences").font(.callout).foregroundStyle(.secondary) }
+            }
+            CadenceCard(title: "Working directory", symbol: "folder", storageKey: sectionKey("directory")) {
+                WorkingDirectoryFields(task: $draft).disabled(running)
+            }
+            CadenceCard(title: "Environment", symbol: "terminal", storageKey: sectionKey("environment"), initiallyExpanded: false) {
+                EnvironmentFields(task: $draft).disabled(running)
+            }
+            if let url = model.configFiles[task.id] { configCard(url) }
+            CadenceCard(title: "Available variables", symbol: "curlybraces", storageKey: sectionKey("variables"), initiallyExpanded: false) {
+                VStack(alignment: .leading, spacing: 10) {
+                    ForEach(["date", "timestamp", "unix", "scheduled_date", "scheduled_timestamp", "input", "previous_output", "previous_output_file"], id: \.self) { name in
+                        Text("{{\(name)}}").font(.system(size: 11, design: .monospaced))
+                            .textSelection(.enabled).padding(.horizontal, 8).padding(.vertical, 5)
+                            .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 5))
+                    }
+                }
+                Text("Use variables in arguments, prompts, alerts, and output paths. Inline commands use quoted TASK_ environment variables.")
+                    .font(.caption).foregroundStyle(.secondary)
+            }
+        }
+    }
+    func configCard(_ url: URL) -> some View {
+        CadenceCard(title: "Config file", symbol: "doc.text", storageKey: sectionKey("config")) {
+            Label("JSON · version 1", systemImage: "checkmark.circle").font(.caption).foregroundStyle(.secondary)
+            Text(url.lastPathComponent).font(.system(size: 11, design: .monospaced))
+                .lineLimit(1).truncationMode(.middle).help(url.path).textSelection(.enabled)
+            Text("Changes here and in this file stay in sync.").font(.caption).foregroundStyle(.secondary)
+            HStack {
+                Button { model.editConfig(url) } label: { Label("Edit File…", systemImage: "square.and.pencil") }
+                Spacer()
+                Menu {
+                    Button("Show in Finder") { NSWorkspace.shared.selectFile(url.path, inFileViewerRootedAtPath: "") }
+                    Button("Export Config…") { model.exportTasks() }.disabled(dirty)
+                } label: { Image(systemName: "ellipsis") }.fixedSize().help("Config file actions")
+            }
+        }
+    }
+    var saveBar: some View {
+        VStack(spacing: 0) {
+            Divider()
+            HStack(spacing: 14) {
+                Label(dirty ? "Unsaved changes" : "Saved to config file", systemImage: dirty ? "circle.fill" : "checkmark.circle")
+                    .font(.caption).foregroundStyle(dirty ? Color.orange : .secondary)
+                Spacer()
+                Button("Revert") { reloadFromDisk() }.disabled(!dirty)
+                Button("Save Changes") { save() }.buttonStyle(.borderedProminent).keyboardShortcut("s")
+                    .disabled(!dirty || running || conflict)
+            }.padding(.horizontal, 24).padding(.vertical, 12)
+                .frame(maxWidth: 1760).frame(maxWidth: .infinity)
+        }.background(.bar)
+    }
+    var conflictBanner: some View {
+        HStack(spacing: 12) {
+            Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
+            Text("The config changed on disk. Reload it before saving this draft.").font(.callout)
+            Spacer()
+            Button("Reload from file") { reloadFromDisk() }
+        }.padding(14).background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+    }
+    var registrationBanner: some View {
+        HStack {
+            Label("Schedule is not registered with launchd.", systemImage: "exclamationmark.triangle")
+            Spacer(); Button("Repair") { model.repair(task) }
+        }.font(.caption).padding(12).background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
     }
     func save() {
         do {
             try model.save(draft, expecting: baseTask)
-            draft = model.tasks.first(where: { $0.id == task.id }) ?? draft
-            baseTask = draft
-            model.drafts.removeValue(forKey: task.id)
-            model.draftBases.removeValue(forKey: task.id)
+            draft = model.tasks.first(where: { $0.id == task.id }) ?? draft; baseTask = draft
+            model.drafts.removeValue(forKey: task.id); model.draftBases.removeValue(forKey: task.id)
         } catch { model.error = error.localizedDescription }
     }
     func reloadFromDisk() {
@@ -293,17 +371,17 @@ struct TaskDetailView: View {
     }
     func runRow(_ run: RunRecord) -> some View {
         Button { selectedRun = run } label: {
-            HStack(spacing: 14) {
-                Image(systemName: statusSymbol(run.status)).foregroundStyle(statusColor(run.status)).frame(width: 24)
+            HStack(spacing: 12) {
+                Image(systemName: statusSymbol(run.status)).font(.system(size: 18)).foregroundStyle(statusColor(run.status)).frame(width: 24)
                 VStack(alignment: .leading, spacing: 5) {
                     Text(run.startedAt.formatted(date: .abbreviated, time: .standard)).font(.system(size: 12, weight: .medium))
                     Text(run.message.isEmpty ? "Running…" : run.message).font(.caption).foregroundStyle(.secondary).lineLimit(2)
                 }
-                Spacer()
+                Spacer(minLength: 10)
                 if run.manual { Text("Manual").font(.caption).foregroundStyle(.secondary) }
                 StatusBadge(title: run.status.rawValue.capitalized, color: statusColor(run.status))
                 Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
-            }.padding(.vertical, 5)
+            }.padding(.vertical, 6).contentShape(Rectangle())
         }.buttonStyle(.plain)
     }
 }

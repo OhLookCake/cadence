@@ -86,7 +86,7 @@ struct ScheduleFields: View {
                 DatePicker("Starting on", selection: $task.schedule.anchor, displayedComponents: .date).environment(\.timeZone, task.schedule.calendar.timeZone)
             }
             TimeZonePicker(selection: $task.schedule.timeZone)
-            Text("Calendar times follow this time zone, including daylight-saving changes. Checks run each minute.").font(.caption).foregroundStyle(.secondary)
+            Text("Calendar times follow this time zone, including daylight-saving changes. Checks run each minute.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
     func toggleDay(_ day: Int) {
@@ -113,16 +113,27 @@ struct ScheduleConfiguration: View {
     @Binding var task: ScheduledTask
     @Binding var missedRunsExpanded: Bool
     var body: some View {
-        HStack(alignment: .top, spacing: 28) {
-            ScheduleFields(task: $task).frame(maxWidth: .infinity, alignment: .leading)
-            DisclosureGroup(isExpanded: $missedRunsExpanded) {
-                MissedRunFields(task: $task).padding(.top, 14)
-            } label: {
-                Label("Missed runs", systemImage: "arrow.trianglehead.clockwise").font(.system(size: 12, weight: .semibold))
-            }.frame(maxWidth: .infinity, alignment: .leading)
+        ViewThatFits(in: .horizontal) {
+            HStack(alignment: .top, spacing: 32) {
+                ScheduleFields(task: $task).frame(minWidth: 330, maxWidth: .infinity, alignment: .leading)
+                missedRuns.frame(minWidth: 330, maxWidth: .infinity, alignment: .leading)
+            }
+            VStack(alignment: .leading, spacing: 24) {
+                ScheduleFields(task: $task)
+                Divider()
+                missedRuns
+            }
+        }
+    }
+    var missedRuns: some View {
+        DisclosureGroup(isExpanded: $missedRunsExpanded) {
+            MissedRunFields(task: $task).padding(.top, 14)
+        } label: {
+            Label("Missed runs", systemImage: "arrow.trianglehead.clockwise").font(.system(size: 12, weight: .semibold))
         }
     }
 }
+
 struct WorkingDirectoryFields: View {
     @Binding var task: ScheduledTask
     var body: some View {
@@ -134,7 +145,7 @@ struct WorkingDirectoryFields: View {
                     if panel.runModal() == .OK, let url = panel.url { task.workingDirectory = url.path }
                 }.fixedSize()
             }
-            Text("All steps run from this directory.").font(.caption).foregroundStyle(.secondary)
+            Text("All steps run from this directory.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -142,9 +153,9 @@ struct EnvironmentFields: View {
     @Binding var task: ScheduledTask
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Environment variables · one KEY=value per line").font(.caption).foregroundStyle(.secondary)
+            Text("Environment variables · one KEY=value per line").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             CodeField(text: $task.environment, height: 75, label: "Environment variables")
-            Text("PATH includes Homebrew and system tools. Values are stored in the local task definition.").font(.caption).foregroundStyle(.secondary)
+            Text("PATH includes Homebrew and system tools. Values are stored in the local task definition.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -152,8 +163,15 @@ struct EnvironmentFields: View {
 struct WorkflowEditor: View {
     @Binding var task: ScheduledTask
     @Environment(\.isEnabled) private var isEnabled
-    @State private var expanded = true
-    @State private var collapsedSteps: Set<UUID> = []
+    @AppStorage private var expanded: Bool
+    @AppStorage private var collapsedStepIDs: String
+    private var collapsedSteps: Set<UUID> { Set(collapsedStepIDs.split(separator: ",").compactMap { UUID(uuidString: String($0)) }) }
+    init(task: Binding<ScheduledTask>) {
+        _task = task
+        let key = task.wrappedValue.id.uuidString
+        _expanded = AppStorage(wrappedValue: true, "cadence.section.\(key).workflow")
+        _collapsedStepIDs = AppStorage(wrappedValue: "", "cadence.section.\(key).steps")
+    }
     @State private var targetedInsertion: Int?
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
@@ -163,10 +181,10 @@ struct WorkflowEditor: View {
                         HStack(spacing: 10) {
                             Image(systemName: expanded ? "chevron.down" : "chevron.right").font(.system(size: 13, weight: .semibold))
                             Text("Workflow").font(.system(size: 22, weight: .semibold, design: .rounded))
-                            Text("\(task.steps.count) steps").font(.caption).foregroundStyle(.secondary)
+                            Text("\(task.steps.count) steps").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                         }.contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityLabel(expanded ? "Collapse Workflow" : "Expand Workflow")
-                    Text("Drag a step’s grip to a connector to reorder. Output flows from one step to the next.").font(.caption).foregroundStyle(.secondary)
+                    Text("Drag a step’s grip to a connector to reorder. Output flows from one step to the next.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
                 addMenu
@@ -218,7 +236,9 @@ struct WorkflowEditor: View {
         task.steps.swapAt(index, index + direction)
     }
     func toggleStep(_ id: UUID) {
-        if collapsedSteps.contains(id) { collapsedSteps.remove(id) } else { collapsedSteps.insert(id) }
+        var ids = collapsedSteps
+        if ids.contains(id) { ids.remove(id) } else { ids.insert(id) }
+        collapsedStepIDs = ids.map(\.uuidString).sorted().joined(separator: ",")
     }
     func dropTarget<Content: View>(_ insertion: Int, @ViewBuilder content: () -> Content) -> some View {
         content().frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
@@ -279,7 +299,7 @@ struct StepFields: View {
             DurationField(title: durationTitle, seconds: $step.timeoutSeconds)
             Toggle("Continue to the next step if this one fails", isOn: $step.continueOnFailure).font(.caption)
             if step.kind == .question {
-                Text("Cancel or timeout stops the remaining workflow, even if continue on failure is enabled.").font(.caption).foregroundStyle(.secondary)
+                Text("Cancel or timeout stops the remaining workflow, even if continue on failure is enabled.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             EditorField(title: "Save output to file (optional)", text: $step.outputPath, monospaced: true)
         }
@@ -290,9 +310,9 @@ struct StepFields: View {
     @ViewBuilder var configuration: some View {
         switch step.kind {
         case .shell:
-            Text("Command · /bin/zsh").font(.caption).foregroundStyle(.secondary)
+            Text("Command · /bin/zsh").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             CodeField(text: $step.body, label: "Inline shell command")
-            Text("Use quoted variables, such as ./report.sh --date \"$TASK_SCHEDULED_DATE\". Shell commands are executed literally.").font(.caption).foregroundStyle(.secondary)
+            Text("Use quoted variables, such as ./report.sh --date \"$TASK_SCHEDULED_DATE\". Shell commands are executed literally.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         case .script:
             HStack(alignment: .bottom) {
                 EditorField(title: "Script file or executable", text: $step.scriptPath, monospaced: true)
@@ -302,10 +322,10 @@ struct StepFields: View {
                 EditorField(title: "Interpreter (optional; leave empty to execute the file directly)", text: $step.executable, monospaced: true)
                 Button("Choose…") { chooseFile(script: false) }.fixedSize()
             }
-            Text("For shell scripts use /bin/zsh. For Python select your uv environment’s .venv/bin/python.").font(.caption).foregroundStyle(.secondary)
-            Text("Arguments · one per line, without shell quoting").font(.caption).foregroundStyle(.secondary)
+            Text("For shell scripts use /bin/zsh. For Python select your uv environment’s .venv/bin/python.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text("Arguments · one per line, without shell quoting").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             CodeField(text: $step.arguments, height: 85, label: "Script arguments")
-            Text("The script path is passed automatically. Arguments support {{scheduled_date}}, {{input}}, and the other variables below.").font(.caption).foregroundStyle(.secondary)
+            Text("The script path is passed automatically. Arguments support {{scheduled_date}}, {{input}}, and the other variables below.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         case .codex:
             HStack(alignment: .bottom) {
                 EditorField(title: "Codex executable", text: $step.executable, monospaced: true)
@@ -313,23 +333,23 @@ struct StepFields: View {
             }
             EditorField(title: "Model (optional)", text: $step.model)
             Picker("Sandbox", selection: $step.sandbox) { Text("Read only").tag("read-only"); Text("Workspace write").tag("workspace-write") }.frame(maxWidth: 380)
-            Text("Prompt").font(.caption).foregroundStyle(.secondary)
+            Text("Prompt").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             CodeField(text: $step.body, label: "Codex prompt")
-            Text("Uses your CLI login. Workspace write permits file changes in the working directory. Background runs cannot ask for command approvals.").font(.caption).foregroundStyle(.secondary)
+            Text("Uses your CLI login. Workspace write permits file changes in the working directory. Background runs cannot ask for command approvals.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         case .localLLM:
             EditorField(title: "Chat completions URL", text: $step.endpoint, monospaced: true)
             EditorField(title: "Model", text: $step.model)
-            Text("Prompt").font(.caption).foregroundStyle(.secondary)
+            Text("Prompt").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             CodeField(text: $step.body, label: "Local LLM prompt")
-            Text("Uses an OpenAI-compatible server, such as Ollama or LM Studio. Optional authentication: CADENCE_LLM_API_KEY in the task environment.").font(.caption).foregroundStyle(.secondary)
+            Text("Uses an OpenAI-compatible server, such as Ollama or LM Studio. Optional authentication: CADENCE_LLM_API_KEY in the task environment.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         case .question:
-            Text("Question").font(.caption).foregroundStyle(.secondary)
+            Text("Question").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             CodeField(text: $step.body, height: 85, label: "Question text")
-            Text("The answer becomes {{input}} and {{previous_output}} for later steps, or $TASK_INPUT and $TASK_PREVIOUS_OUTPUT in shell commands. Questions can include output from earlier steps.").font(.caption).foregroundStyle(.secondary)
+            Text("The answer becomes {{input}} and {{previous_output}} for later steps, or $TASK_INPUT and $TASK_PREVIOUS_OUTPUT in shell commands. Questions can include output from earlier steps.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         case .response:
-            Text("Message").font(.caption).foregroundStyle(.secondary)
+            Text("Message").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             CodeField(text: $step.body, height: 85, label: "Response message")
-            Text("Use {{previous_output}} to show the preceding result, or write a message with variables. Showing a response preserves the previous output for the next step. Displays up to 6,000 characters.").font(.caption).foregroundStyle(.secondary)
+            Text("Use {{previous_output}} to show the preceding result, or write a message with variables. Showing a response preserves the previous output for the next step. Displays up to 6,000 characters.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
     func chooseFile(script: Bool) {
