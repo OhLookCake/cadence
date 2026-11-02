@@ -148,6 +148,7 @@ struct TaskDetailView: View {
     @State private var selectedRun: RunRecord?
     @State private var confirmDelete = false
     @State private var showAllRuns = false
+    @State private var missedRunsExpanded = true
     init(task: ScheduledTask) { self.task = task; _draft = State(initialValue: task) }
     var dirty: Bool { draft != task }
     var taskRuns: [RunRecord] { model.runs.filter { $0.taskID == task.id } }
@@ -165,9 +166,8 @@ struct TaskDetailView: View {
                         .font(.caption).padding(12).background(.orange.opacity(0.1), in: RoundedRectangle(cornerRadius: 8))
                 }
                 Group {
-                    HStack(alignment: .top, spacing: 16) {
-                        CadenceCard(title: "Schedule", symbol: "calendar") { ScheduleFields(task: $draft) }
-                        CadenceCard(title: "When a run is missed", symbol: "arrow.trianglehead.clockwise") { MissedRunFields(task: $draft) }
+                    CadenceCard(title: "Schedule", symbol: "calendar") {
+                        ScheduleConfiguration(task: $draft, missedRunsExpanded: $missedRunsExpanded)
                     }
                     CadenceCard(title: "Next occurrences", symbol: "clock") {
                         if previews.isEmpty { Text("No future occurrences for this schedule.").font(.caption).foregroundStyle(.secondary) }

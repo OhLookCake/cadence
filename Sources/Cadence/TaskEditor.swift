@@ -109,6 +109,20 @@ struct MissedRunFields: View {
         }
     }
 }
+struct ScheduleConfiguration: View {
+    @Binding var task: ScheduledTask
+    @Binding var missedRunsExpanded: Bool
+    var body: some View {
+        HStack(alignment: .top, spacing: 28) {
+            ScheduleFields(task: $task).frame(maxWidth: .infinity, alignment: .leading)
+            DisclosureGroup(isExpanded: $missedRunsExpanded) {
+                MissedRunFields(task: $task).padding(.top, 14)
+            } label: {
+                Label("Missed runs", systemImage: "arrow.trianglehead.clockwise").font(.system(size: 12, weight: .semibold))
+            }.frame(maxWidth: .infinity, alignment: .leading)
+        }
+    }
+}
 struct WorkingDirectoryFields: View {
     @Binding var task: ScheduledTask
     var body: some View {
