@@ -72,7 +72,7 @@ struct CadenceCard<Content: View>: View {
             if expanded { content }
         }.frame(maxWidth: .infinity, alignment: .leading).padding(22)
             .background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
-            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.055)))
+            .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.primary.opacity(0.055)).allowsHitTesting(false))
     }
 }
 struct StatusBadge: View {
@@ -217,10 +217,24 @@ struct TaskDetailView: View {
                 Spacer()
                 Toggle("Enable schedule", isOn: $draft.enabled).toggleStyle(.switch).fixedSize().disabled(model.isRunning(task))
             }
-            TextField("Task name", text: $draft.name).font(.system(size: 30, weight: .semibold, design: .rounded))
-                .textFieldStyle(.plain).accessibilityLabel("Task name").disabled(model.isRunning(task))
-            TextField("Add notes…", text: $draft.notes, axis: .vertical).textFieldStyle(.plain)
-                .font(.system(size: 13)).foregroundStyle(.secondary).accessibilityLabel("Task notes").disabled(model.isRunning(task))
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Task name", systemImage: "pencil").font(.caption).foregroundStyle(.secondary)
+                TextField("Name this task", text: $draft.name)
+                    .font(.system(size: 24, weight: .semibold, design: .rounded))
+                    .textFieldStyle(.plain).padding(12)
+                    .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.18)).allowsHitTesting(false))
+                    .accessibilityLabel("Task name")
+            }.disabled(model.isRunning(task))
+            VStack(alignment: .leading, spacing: 8) {
+                Label("Description", systemImage: "text.alignleft").font(.caption).foregroundStyle(.secondary)
+                TextField("Describe what this task does…", text: $draft.notes, axis: .vertical)
+                    .lineLimit(2...5).font(.system(size: 13)).textFieldStyle(.plain).padding(12)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.18)).allowsHitTesting(false))
+                    .accessibilityLabel("Task description")
+            }.disabled(model.isRunning(task))
             HStack {
                 Button { model.runNow(task) } label: { Label("Run Now", systemImage: "play.fill") }
                     .buttonStyle(.borderedProminent).disabled(dirty || model.isRunning(task)).help(dirty ? "Save changes before running" : "Run this task now")
