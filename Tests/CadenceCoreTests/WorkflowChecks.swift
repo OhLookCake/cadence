@@ -105,3 +105,25 @@ extension CadenceCoreTests {
         XCTAssertTrue(dialogs.messages.isEmpty)
     }
 }
+
+extension CadenceCoreTests {
+    func testWorkflowReorder() {
+        let original = [TaskStep.make(.question), TaskStep.make(.shell), TaskStep.make(.response)]
+        var steps = original
+        XCTAssertTrue(WorkflowOrder.move(original[0].id, in: &steps, toInsertion: 3))
+        XCTAssertEqual(steps.map(\.id), [original[1].id, original[2].id, original[0].id])
+        XCTAssertTrue(WorkflowOrder.move(original[0].id, in: &steps, toInsertion: 0))
+        XCTAssertEqual(steps, original)
+        XCTAssertTrue(WorkflowOrder.move(original[1].id, in: &steps, toInsertion: 2))
+        XCTAssertEqual(steps, original)
+        XCTAssertTrue(WorkflowOrder.move(original[2].id, in: &steps, toInsertion: 1))
+        XCTAssertEqual(steps.map(\.id), [original[0].id, original[2].id, original[1].id])
+        let before = steps
+        XCTAssertFalse(WorkflowOrder.move(UUID(), in: &steps, toInsertion: 0))
+        XCTAssertFalse(WorkflowOrder.move(steps[0].id, in: &steps, toInsertion: -1))
+        XCTAssertFalse(WorkflowOrder.move(steps[0].id, in: &steps, toInsertion: 4))
+        XCTAssertEqual(steps, before)
+        var empty: [TaskStep] = []
+        XCTAssertFalse(WorkflowOrder.move(UUID(), in: &empty, toInsertion: 0))
+    }
+}

@@ -1,5 +1,6 @@
 import SwiftUI
 import AppKit
+import UniformTypeIdentifiers
 import CadenceCore
 
 struct EditorField: View {
@@ -38,7 +39,7 @@ struct CodeField: View {
             .scrollContentBackground(.hidden).padding(8)
             .frame(height: height)
             .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
-            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)))
+            .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)).allowsHitTesting(false))
             .accessibilityLabel(label)
     }
 }
@@ -136,8 +137,10 @@ struct EnvironmentFields: View {
 
 struct WorkflowEditor: View {
     @Binding var task: ScheduledTask
+    @Environment(\.isEnabled) private var isEnabled
     @State private var expanded = true
     @State private var collapsedSteps: Set<UUID> = []
+    @State private var targetedInsertion: Int?
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
@@ -149,17 +152,20 @@ struct WorkflowEditor: View {
                             Text("\(task.steps.count) steps").font(.caption).foregroundStyle(.secondary)
                         }.contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityLabel(expanded ? "Collapse Workflow" : "Expand Workflow")
-                    Text("Follow the chain from start to finish. Each step can pass its output to the next.").font(.caption).foregroundStyle(.secondary)
+                    Text("Drag a step’s grip to a connector to reorder. Output flows from one step to the next.").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 addMenu
             }
             if expanded {
-            WorkflowBoundary(title: "Start", symbol: "play.fill")
+            dropTarget(0) { WorkflowBoundary(title: "Start", symbol: "play.fill") }
             ForEach($task.steps) { $step in
                 let index = task.steps.firstIndex(where: { $0.id == step.id }) ?? 0
                 VStack(alignment: .leading, spacing: 20) {
                     HStack(spacing: 12) {
+                        WorkflowDragHandle(transfer: WorkflowStepTransfer(taskID: task.id, stepID: step.id),
+                                           title: "\(index + 1). \(step.name)", enabled: isEnabled)
+                            .frame(width: 28, height: 28)
                         Text(String(format: "%02d", index + 1)).font(.system(size: 12, weight: .semibold, design: .monospaced))
                             .foregroundStyle(.white).frame(width: 34, height: 34).background(Color.cadence, in: Circle())
                         Image(systemName: step.kind.symbol).foregroundStyle(Color.cadence)
@@ -178,15 +184,15 @@ struct WorkflowEditor: View {
                         StepFields(step: $step)
                     }
                 }.padding(20).background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
-                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.cadence.opacity(0.35), lineWidth: 1.5))
-                if index < task.steps.count - 1 { WorkflowConnector() }
+                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.cadence.opacity(0.35), lineWidth: 1.5).allowsHitTesting(false))
+                if index < task.steps.count - 1 { dropTarget(index + 1) { WorkflowConnector() } }
             }
             if task.steps.isEmpty { Text("Add a step to define what this task does.").foregroundStyle(.secondary).padding(.vertical, 15) }
-            WorkflowBoundary(title: "End", symbol: "checkmark")
+            dropTarget(task.steps.count) { WorkflowBoundary(title: "End", symbol: "checkmark") }
             addMenu
             }
         }.padding(20).background(Color.cadence.opacity(0.045), in: RoundedRectangle(cornerRadius: 18))
-            .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.cadence.opacity(0.15)))
+            .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.cadence.opacity(0.15)).allowsHitTesting(false))
     }
     var addMenu: some View {
         Menu { ForEach(StepKind.allCases) { kind in Button { task.steps.append(TaskStep.make(kind)); expanded = true } label: { Label(kind.title, systemImage: kind.symbol) } } } label: {
@@ -199,6 +205,30 @@ struct WorkflowEditor: View {
     }
     func toggleStep(_ id: UUID) {
         if collapsedSteps.contains(id) { collapsedSteps.remove(id) } else { collapsedSteps.insert(id) }
+    }
+    func dropTarget<Content: View>(_ insertion: Int, @ViewBuilder content: () -> Content) -> some View {
+        content().frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
+            .padding(.vertical, 4).contentShape(Rectangle())
+            .background(targetedInsertion == insertion ? Color.cadence.opacity(0.15) : .clear, in: RoundedRectangle(cornerRadius: 8))
+            .overlay(alignment: .bottom) {
+                if targetedInsertion == insertion { Rectangle().fill(Color.cadence).frame(height: 3).allowsHitTesting(false) }
+            }
+            .onDrop(of: [.cadenceWorkflowStep], isTargeted: Binding(get: { targetedInsertion == insertion }, set: { targeted in
+                if targeted && isEnabled { targetedInsertion = insertion }
+                else if targetedInsertion == insertion { targetedInsertion = nil }
+            })) { providers in
+                targetedInsertion = nil
+                guard isEnabled, providers.count == 1, let provider = providers.first else { return false }
+                provider.loadDataRepresentation(forTypeIdentifier: UTType.cadenceWorkflowStep.identifier) { data, _ in
+                    guard let data, let item = try? JSONDecoder().decode(WorkflowStepTransfer.self, from: data) else { return }
+                    Task { @MainActor in
+                        guard isEnabled, item.taskID == task.id else { return }
+                        WorkflowOrder.move(item.stepID, in: &task.steps, toInsertion: insertion)
+                    }
+                }
+                return true
+            }
+            .accessibilityLabel(insertion == task.steps.count ? "Drop step at end" : "Drop step before step \(insertion + 1)")
     }
 }
 struct WorkflowBoundary: View {

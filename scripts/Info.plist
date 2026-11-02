@@ -11,4 +11,9 @@
 <key>CFBundleIconFile</key><string>Cadence</string>
 <key>LSMinimumSystemVersion</key><string>14.0</string>
 <key>NSHighResolutionCapable</key><true/>
+<key>UTExportedTypeDeclarations</key><array><dict>
+<key>UTTypeIdentifier</key><string>local.cadence.workflow-step</string>
+<key>UTTypeDescription</key><string>Cadence workflow step</string>
+<key>UTTypeConformsTo</key><array><string>public.data</string></array>
+</dict></array>
 </dict></plist>

@@ -24,6 +24,7 @@ class CheckCase {
     func cleanup() { for block in teardown.reversed() { block() }; teardown = [] }
 }
 let checks: [(String, (CadenceCoreTests) -> () throws -> Void)] = [
+    ("Workflow drag reorder boundaries", CadenceCoreTests.testWorkflowReorder),
     ("Legacy interaction migration", CadenceCoreTests.testLegacyInteractionsMigrateOnceWithStableIDs),
     ("Legacy script invocation migration", CadenceCoreTests.testLegacyExecutableKeepsExactArguments),
     ("File scripts and inline commands", CadenceCoreTests.testFileScriptsAndInlineCommandsCoexist),
