@@ -84,7 +84,7 @@ struct ScheduleFields: View {
             if task.schedule.kind == .everyDays {
                 DatePicker("Starting on", selection: $task.schedule.anchor, displayedComponents: .date).environment(\.timeZone, task.schedule.calendar.timeZone)
             }
-            EditorField(title: "Time zone", text: $task.schedule.timeZone)
+            TimeZonePicker(selection: $task.schedule.timeZone)
             Text("Calendar times follow this time zone, including daylight-saving changes. Checks run each minute.").font(.caption).foregroundStyle(.secondary)
         }
     }
@@ -134,7 +134,7 @@ struct WorkflowEditor: View {
             HStack {
                 VStack(alignment: .leading, spacing: 5) {
                     Text("Workflow").font(.system(size: 22, weight: .semibold, design: .rounded))
-                    Text("Steps run in order. Add questions, commands, scripts, or responses anywhere.").font(.caption).foregroundStyle(.secondary)
+                    Text("Steps run in order. Add user input, commands, scripts, or alerts anywhere.").font(.caption).foregroundStyle(.secondary)
                 }
                 Spacer()
                 addMenu

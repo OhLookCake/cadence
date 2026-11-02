@@ -26,10 +26,10 @@ Create a task with **⌘N** or a starter button. Its overview is directly editab
 | Skip missed runs | Discard occurrences older than the grace period; default 90 seconds |
 | Latest only | Coalesce the backlog into its most recent occurrence |
 | Replay backlog | Oldest first, with a configurable per-check batch limit; remaining work stays queued |
-| Question step | Ask for input anywhere in the workflow; cancellation or timeout stops remaining steps |
-| Response step | Display a message or an earlier result anywhere in the workflow |
+| User input | Ask for input anywhere in the workflow; cancellation or timeout stops remaining steps |
+| Show alert | Display a message or an earlier result anywhere in the workflow |
 
-Calendar schedules use the task’s explicit time zone. Missing DST times move forward; repeated times run once. The editor previews upcoming occurrences. Editing a schedule or re-enabling a task resets scheduling from now. Paused time is not backfilled. Manual runs do not change the schedule cursor.
+Calendar schedules use the task’s explicit time zone. Choose from the time-zone list; type a city or region to filter, then click a result or use the arrow keys and Return. Missing DST times move forward; repeated times run once. The editor previews upcoming occurrences. Editing a schedule or re-enabling a task resets scheduling from now. Paused time is not backfilled. Manual runs do not change the schedule cursor.
 
 ## Steps
 
@@ -37,8 +37,8 @@ Calendar schedules use the task’s explicit time zone. Missing DST times move f
 - **Script file / executable:** select an existing file with **Choose File…**. Specify an optional interpreter, such as `/bin/zsh` or your uv project’s `.venv/bin/python`; leave it empty to run an executable file directly. The script path is passed automatically, followed by one argument per line, without shell parsing. Relative script and interpreter paths resolve against the task’s working directory. Inline commands and file scripts can coexist in the same workflow.
 - **Codex CLI:** `codex exec`, using an existing CLI login, the task’s working directory, optional model, and read-only or workspace-write sandbox. Prompts go through stdin; the final message is captured with `--output-last-message`. Interactive approvals are unavailable. No paid Codex call was made during verification; the CLI argument/stdin/output contract was tested with a local fixture.
 - **Local LLM:** an HTTP chat-completions endpoint, defaulting to `http://localhost:11434/v1/chat/completions`. Works with servers that implement `choices[0].message.content`, including compatible Ollama and LM Studio configurations. Set the installed model name explicitly. Optional bearer authentication uses `CADENCE_LLM_API_KEY` from the task’s environment.
-- **Ask a question:** displays a text-entry dialog at that point in the sequence. Its answer becomes both `{{input}}` and `{{previous_output}}` for following steps. Multiple questions are supported; `{{input}}` contains the most recent answer. Cancel or timeout stops remaining steps even when continue on failure is enabled. Earlier completed steps are retained.
-- **Show response:** displays literal text with variables, defaulting to `{{previous_output}}`. It preserves the previous output for later steps. Each response has its own dismissal timeout. The dialog displays the last 6,000 characters; the step’s captured output remains in the run folder.
+- **User input:** displays a text-entry dialog at that point in the sequence. Its answer becomes both `{{input}}` and `{{previous_output}}` for following steps. Multiple questions are supported; `{{input}}` contains the most recent answer. Cancel or timeout stops remaining steps even when continue on failure is enabled. Earlier completed steps are retained.
+- **Show alert:** displays literal text with variables, defaulting to `{{previous_output}}`. It preserves the previous output for later steps. Each response has its own dismissal timeout. The dialog displays the last 6,000 characters; the step’s captured output remains in the run folder.
 
 Questions and responses use the same add, edit, reorder, remove, output-file, and per-step execution controls as other steps. Existing task-level question/result settings automatically load as a question at the beginning and a response at the end. Saved definitions use only workflow steps. A failure stops later steps unless that failed step is configured to continue.
 

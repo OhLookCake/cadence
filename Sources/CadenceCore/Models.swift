@@ -85,7 +85,7 @@ public enum StepKind: String, Codable, CaseIterable, Identifiable {
     case shell, script, codex, localLLM, question, response
     public var id: String { rawValue }
     public var title: String {
-        switch self { case .shell: return "Inline command"; case .script: return "Script file / executable"; case .codex: return "Codex CLI"; case .localLLM: return "Local LLM (HTTP)"; case .question: return "Ask a question"; case .response: return "Show response" }
+        switch self { case .shell: return "Inline command"; case .script: return "Script file / executable"; case .codex: return "Codex CLI"; case .localLLM: return "Local LLM (HTTP)"; case .question: return "User input"; case .response: return "Show alert" }
     }
     public var symbol: String {
         switch self { case .shell: return "terminal"; case .script: return "doc.text"; case .codex: return "sparkles"; case .localLLM: return "cpu"; case .question: return "bubble.left.and.text.bubble.right"; case .response: return "text.bubble" }
@@ -115,6 +115,7 @@ public struct TaskStep: Codable, Identifiable, Equatable {
         id = try c.decodeIfPresent(UUID.self, forKey: .id) ?? id
         name = try c.decodeIfPresent(String.self, forKey: .name) ?? name
         kind = try c.decodeIfPresent(StepKind.self, forKey: .kind) ?? kind
+        if (kind == .question && name == "Ask a question") || (kind == .response && name == "Show response") { name = kind.title }
         body = try c.decodeIfPresent(String.self, forKey: .body) ?? body
         executable = try c.decodeIfPresent(String.self, forKey: .executable) ?? executable
         scriptPath = try c.decodeIfPresent(String.self, forKey: .scriptPath) ?? ""
