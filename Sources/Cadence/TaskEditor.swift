@@ -51,13 +51,55 @@ struct CodeField: View {
     @Binding var text: String
     var height: CGFloat = 140
     var label = "Text"
+    var monospaced = true
+    var placeholder = ""
+    @Environment(\.isEnabled) private var isEnabled
+    @State private var resizedHeight: CGFloat?
+    @GestureState private var resizeTranslation: CGFloat = 0
+    private let minimumHeight: CGFloat = 60
+    private var editorHeight: CGFloat { max(minimumHeight, (resizedHeight ?? height) + resizeTranslation) }
+
     var body: some View {
-        TextEditor(text: $text).font(.system(size: 12, design: .monospaced))
-            .scrollContentBackground(.hidden).padding(8)
-            .frame(height: height)
+        VStack(spacing: 0) {
+            ZStack(alignment: .topLeading) {
+                TextEditor(text: $text).scrollContentBackground(.hidden).accessibilityLabel(label)
+                if text.isEmpty && !placeholder.isEmpty {
+                    Text(placeholder).foregroundStyle(.tertiary).padding(.horizontal, 5).padding(.top, 8)
+                        .allowsHitTesting(false).accessibilityHidden(true)
+                }
+            }.padding(.horizontal, 8).padding(.top, 8)
+            HStack {
+                Spacer()
+                resizeHandle
+            }.padding(.horizontal, 6).padding(.bottom, 3)
+        }
+            .font(monospaced ? .system(size: 12, design: .monospaced) : .system(size: 13))
+            .frame(height: editorHeight)
             .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)).allowsHitTesting(false))
-            .accessibilityLabel(label)
+    }
+    private var resizeHandle: some View {
+        Image(systemName: "line.3.horizontal").font(.system(size: 9, weight: .semibold))
+            .foregroundStyle(.secondary).frame(width: 30, height: 16).contentShape(Rectangle())
+            .help("Drag up or down to resize")
+            .onHover { hovering in
+                if hovering && isEnabled { NSCursor.resizeUpDown.set() } else { NSCursor.arrow.set() }
+            }
+            .gesture(DragGesture(minimumDistance: 0, coordinateSpace: .global)
+                .updating($resizeTranslation) { value, translation, _ in translation = value.translation.height }
+                .onEnded { value in resizedHeight = max(minimumHeight, (resizedHeight ?? height) + value.translation.height) },
+                including: isEnabled ? .all : .none)
+            .accessibilityElement()
+            .accessibilityLabel("Resize " + label)
+            .accessibilityValue("\(Int(editorHeight)) points high")
+            .accessibilityAdjustableAction { direction in
+                guard isEnabled else { return }
+                switch direction {
+                case .increment: resizedHeight = (resizedHeight ?? height) + 20
+                case .decrement: resizedHeight = max(minimumHeight, (resizedHeight ?? height) - 20)
+                @unknown default: break
+                }
+            }
     }
 }
 struct ScheduleFields: View {

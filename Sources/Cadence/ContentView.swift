@@ -256,9 +256,8 @@ struct TaskDetailView: View {
                     }
                     VStack(alignment: .leading, spacing: 6) {
                         Text("Description").font(.caption.weight(.medium)).foregroundStyle(.secondary)
-                        TextField("Describe what this task does…", text: $draft.notes, axis: .vertical)
-                            .lineLimit(2...4).font(.system(size: 13)).textFieldStyle(.roundedBorder)
-                            .accessibilityLabel("Task description")
+                        CodeField(text: $draft.notes, height: 75, label: "Task description", monospaced: false,
+                                  placeholder: "Describe what this task does…")
                     }
                 }.disabled(running)
             }
