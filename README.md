@@ -57,7 +57,7 @@ Enable **Run only when…** to check an earlier named result. Output conditions 
 
 A false condition skips only that step, leaving `input` and `previous_output` unchanged. History shows each reached step's status and the reason for a skip. Output conditions on failed or skipped sources are false, including empty and negative checks; use status conditions to handle those cases. Failed/skipped results have empty output and file references. An alert has its own named result while continuing to preserve `previous_output`.
 
-Template references and conditions must target earlier steps. Save rejects missing names and forward template references after reordering/removal; update references when changing a result name. Existing workflows run unconditionally until you add conditions. See the [importable conditional example](Examples/conditional-report.cadence.json) and [config details](docs/flow-config.md#conditions-and-named-results).
+Template references and conditions must target earlier steps. Save rejects missing names and forward template references after reordering/removal; update references when changing a result name. Existing workflows run unconditionally until you add conditions. See the [importable conditional example](Examples/Conditional_report_example.cadence.json) and [config details](docs/flow-config.md#conditions-and-named-results).
 
 Output comparisons and template references use the captured result (up to the last 1 MB for process output). Named shell output variables contain at most the last 16,000 UTF-8 bytes each and share a 48,000-byte budget; use their full output files for larger data. Shared environment values may use named references and are expanded afresh before each step. Unreached results have empty output/file and status `pending`.
 
@@ -107,7 +107,7 @@ Before side effects, each occurrence is claimed durably. If the runner crashes o
 
 ```text
 ~/Library/Application Support/Cadence/
-  flows/<UUID>.cadence.json  One editable config per task
+  flows/<Workflow_name>.cadence.json  One editable config per task
   metadata/                 Schedule activation metadata
   legacy/                   Archived pre-migration catalog
   state/                  Durable schedule cursors, locks, cancellation requests

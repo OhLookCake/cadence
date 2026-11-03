@@ -1,6 +1,6 @@
 # Cadence task configs: instructions for LLM agents
 
-Use this document to create or edit Cadence task configuration files from a user's request. A task is one schedule plus an ordered workflow of steps. The public format is **version 1, UTF-8 JSON**, normally named `<UUID>.cadence.json`. JSON comments, trailing commas, and unknown fields are not supported.
+Use this document to create or edit Cadence task configuration files from a user's request. A task is one schedule plus an ordered workflow of steps. The public format is **version 1, UTF-8 JSON**, named after the workflow with underscores replacing spaces, such as `Daily_report.cadence.json`. JSON comments, trailing commas, and unknown fields are not supported.
 
 The [JSON Schema](docs/flow.schema.json) describes the file structure. [FlowConfig.swift](Sources/CadenceCore/FlowConfig.swift) implements decoding and serialization; [Models.swift](Sources/CadenceCore/Models.swift) supplies defaults, validation, and schedule arithmetic; [Execution.swift](Sources/CadenceCore/Execution.swift) defines execution and substitution. Consult those files if this guide and the implementation diverge. The [user-facing format guide](docs/flow-config.md) explains import and reload behavior.
 
@@ -8,14 +8,14 @@ The [JSON Schema](docs/flow.schema.json) describes the file structure. [FlowConf
 
 1. Read the existing config before editing. Preserve the task `id`, existing step IDs, workflow order, enabled state, and settings outside the requested change. Do not replace an existing task with an imported copy: importing assigns a new task identity.
 2. For a new importable config, omit the top-level `id` and use `"enabled": false`. Cadence assigns an ID and always imports tasks paused. Step IDs can be omitted in a new file; when adding steps to an existing managed file, prefer fresh UUIDs for the new steps and preserve all existing IDs.
-3. For a new file placed directly in the managed `flows/` directory, generate a unique top-level UUID. Never put two files with the same task ID there; both are rejected. Files without a task ID cannot load as managed tasks. Keep the existing filename when editing.
+3. For a new file placed directly in the managed `flows/` directory, generate a unique top-level UUID. Never put two files with the same task ID there; both are rejected. Files without a task ID cannot load as managed tasks. Use the workflow name with underscores for the filename. Cadence renames managed files to match their name on reload, adding numeric suffixes for collisions; recheck the current path after changing a workflow name.
 4. Use explicit schedule values, especially the time zone, interval, weekdays, and anchor where applicable. Ask for missing information that materially changes the requested behavior, such as an ambiguous time zone or unknown script location. Do not invent installed models, executable paths, credentials, or script contents.
 5. Write complete valid JSON, using only the fields below. Unless asked for a patch or explanation, deliver an actual `.cadence.json` file when filesystem access is available, or one complete JSON object otherwise. Explain dependencies and whether validation was structural or performed by Cadence.
 
 Managed configs live at:
 
 ```text
-~/Library/Application Support/Cadence/flows/<UUID>.cadence.json
+~/Library/Application Support/Cadence/flows/<Workflow_name>.cadence.json
 ```
 
 For an importable file, use **File → Import Config…**, then edit the managed copy shown in the task's **Config file** section. Import copies the definition; later edits to the original import source do not update the task.
@@ -125,7 +125,7 @@ empty output/file values. An alert's named output is its rendered message.
 Failed source steps need `continueOnFailure: true` to reach later handlers, and
 the overall run still fails. Cancellation stops everything, including status
 handlers. Do not invent jump, else, or graph fields: repeat a condition on each
-step in a branch. See [the full example](Examples/conditional-report.cadence.json).
+step in a branch. See [the full example](Examples/Conditional_report_example.cadence.json).
 
 ### shell
 

@@ -39,7 +39,7 @@ extension CadenceCoreTests {
         var oldRecord = try JSONSerialization.jsonObject(with: encoder.encode(record)) as! [String: Any]
         oldRecord.removeValue(forKey: "stepResults")
         XCTAssertNil(try decoder.decode(RunRecord.self, from: JSONSerialization.data(withJSONObject: oldRecord)).stepResults)
-        let example = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Examples/conditional-report.cadence.json")
+        let example = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Examples/Conditional_report_example.cadence.json")
         try FlowConfig.decode(Data(contentsOf: example)).task().validate()
     }
 

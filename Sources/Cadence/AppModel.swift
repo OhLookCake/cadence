@@ -139,7 +139,7 @@ import CadenceCore
     }
     func exportTasks() {
         guard let task = tasks.first(where: { $0.id == selection }) else { return }
-        let panel = NSSavePanel(); panel.nameFieldStringValue = task.name.replacingOccurrences(of: "/", with: "-") + ".cadence.json"; panel.allowedContentTypes = [.json]
+        let panel = NSSavePanel(); panel.nameFieldStringValue = CadenceStore.configFileName(for: task.name); panel.allowedContentTypes = [.json]
         guard panel.runModal() == .OK, let url = panel.url else { return }
         do { try store.exportConfig(task, to: url) } catch { self.error = error.localizedDescription }
     }

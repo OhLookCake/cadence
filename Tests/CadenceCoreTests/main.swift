@@ -26,6 +26,8 @@ class CheckCase {
 let checks: [(String, (CadenceCoreTests) -> () throws -> Void)] = [
     ("Save to file content, references, and full output", CadenceCoreTests.testSaveFileStepContentReferencesAndLargeOutput),
     ("Save to file validation and failure", CadenceCoreTests.testSaveFileValidationAndFailure),
+    ("Config names follow workflows and preserve identity", CadenceCoreTests.testConfigNamesFollowWorkflowsAndPreserveIdentity),
+    ("Config name collisions and safe filenames", CadenceCoreTests.testConfigNameCollisionsAndSafeFilenames),
     ("Conditional config and old history", CadenceCoreTests.testConditionalConfigAndOldHistory),
     ("Conditional reference validation", CadenceCoreTests.testConditionalReferenceValidation),
     ("Every condition operator", CadenceCoreTests.testEveryConditionOperator),

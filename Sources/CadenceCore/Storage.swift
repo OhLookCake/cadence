@@ -35,7 +35,49 @@ public final class CadenceStore {
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
     }
     public var flowsDirectory: URL { root.appendingPathComponent("flows", isDirectory: true) }
-    public func defaultConfigURL(_ id: UUID) -> URL { flowsDirectory.appendingPathComponent("\(id.uuidString.lowercased()).cadence.json") }
+    public static func configFileName(for name: String) -> String {
+        let separators = CharacterSet.whitespacesAndNewlines.union(.controlCharacters).union(.illegalCharacters)
+            .union(CharacterSet(charactersIn: "/\\:"))
+        let cleaned = name.components(separatedBy: separators).filter { !$0.isEmpty }.joined(separator: "_")
+            .trimmingCharacters(in: CharacterSet(charactersIn: "."))
+        // Leave room for the extension and collision suffix on filesystems with 255-byte names.
+        var stem = ""
+        for character in cleaned {
+            guard stem.utf8.count + String(character).utf8.count <= 180 else { break }
+            stem.append(character)
+        }
+        return (stem.isEmpty ? "Untitled_workflow" : stem) + ".cadence.json"
+    }
+    private func availableConfigURL(for task: ScheduledTask, replacing current: URL? = nil) throws -> URL {
+        let names = try FileManager.default.contentsOfDirectory(atPath: flowsDirectory.path)
+        let occupied = Set(names.filter { $0 != current?.lastPathComponent }.map { $0.lowercased() })
+        let filename = Self.configFileName(for: task.name)
+        let stem = String(filename.dropLast(".cadence.json".count))
+        var candidate = filename, suffix = 2
+        while occupied.contains(candidate.lowercased()) {
+            candidate = "\(stem)_\(suffix).cadence.json"; suffix += 1
+        }
+        return flowsDirectory.appendingPathComponent(candidate)
+    }
+    private func renameConfig(from source: URL, to destination: URL) throws {
+        guard source != destination else { return }
+        // Stage case-only renames so they also work on case-insensitive volumes.
+        if source.lastPathComponent.caseInsensitiveCompare(destination.lastPathComponent) == .orderedSame {
+            // Keep the staged config discoverable if the app exits between the two moves.
+            let temporary = flowsDirectory.appendingPathComponent("Rename_\(UUID().uuidString).cadence.json")
+            try FileManager.default.moveItem(at: source, to: temporary)
+            do { try FileManager.default.moveItem(at: temporary, to: destination) }
+            catch { try? FileManager.default.moveItem(at: temporary, to: source); throw error }
+        } else { try FileManager.default.moveItem(at: source, to: destination) }
+    }
+    private func writeNewConfig(_ data: Data, to destination: URL) throws {
+        let temporary = flowsDirectory.appendingPathComponent(".save-\(UUID().uuidString)")
+        defer { try? FileManager.default.removeItem(at: temporary) }
+        try data.write(to: temporary, options: .atomic)
+        try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: temporary.path)
+        // Moving a complete file refuses to overwrite a config created since the directory was read.
+        try FileManager.default.moveItem(at: temporary, to: destination)
+    }
     private func metadataURL(_ id: UUID) -> URL { root.appendingPathComponent("metadata/\(id.uuidString).json") }
 
     public func catalog() throws -> FlowCatalog {
@@ -78,11 +120,19 @@ public final class CadenceStore {
             } catch { result.issues.append(ConfigIssue(url: url, message: error.localizedDescription)) }
         }
         let grouped = Dictionary(grouping: candidates, by: { $0.0.id })
-        for (_, group) in grouped {
+        for group in grouped.values.sorted(by: { $0[0].1.lastPathComponent < $1[0].1.lastPathComponent }) {
             if group.count > 1 {
                 for (_, url) in group { result.issues.append(ConfigIssue(url: url, message: "Duplicate flow id. Each config must have a unique id.")) }
             } else if let (task, url) = group.first {
-                result.tasks.append(task); result.files[task.id] = url
+                var managedURL = url
+                do {
+                    let destination = try availableConfigURL(for: task, replacing: url)
+                    try renameConfig(from: url, to: destination)
+                    managedURL = destination
+                } catch {
+                    result.issues.append(ConfigIssue(url: url, message: "Could not rename config to match the workflow: \(error.localizedDescription)"))
+                }
+                result.tasks.append(task); result.files[task.id] = managedURL
             }
         }
         result.tasks.sort { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
@@ -96,12 +146,17 @@ public final class CadenceStore {
         if let expected, catalog.tasks.first(where: { $0.id == task.id }) != expected {
             throw CadenceError.message("The config changed on disk while you were editing. Reload from file before saving to avoid overwriting those changes.")
         }
-        let url = catalog.files[task.id] ?? defaultConfigURL(task.id)
-        if catalog.files[task.id] == nil && FileManager.default.fileExists(atPath: url.path) {
-            throw CadenceError.message("The existing config is invalid. Fix it before saving this task.")
+        if catalog.issues.contains(where: { (try? FlowConfig.decode(Data(contentsOf: $0.url)).id) == task.id }) {
+            throw CadenceError.message("This task has an invalid or duplicate config. Fix it before saving.")
         }
+        let current = catalog.files[task.id]
+        let url = try availableConfigURL(for: task, replacing: current)
         let existingSchema = catalog.files[task.id].flatMap { try? FlowConfig.decode(Data(contentsOf: $0)).schema }
-        try FlowConfig.encode(task, schema: schema ?? existingSchema).write(to: url, options: .atomic)
+        let data = try FlowConfig.encode(task, schema: schema ?? existingSchema)
+        if let current {
+            try renameConfig(from: current, to: url)
+            try data.write(to: url, options: .atomic)
+        } else { try writeNewConfig(data, to: url) }
         try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
         try write(FlowMetadata(task: task), at: metadataURL(task.id))
     }
@@ -131,9 +186,9 @@ public final class CadenceStore {
         defer { withExtendedLifetime(lock) {} }
         guard FileManager.default.fileExists(atPath: legacy.path) else { return }
         for task in try read([ScheduledTask].self, at: legacy) {
-            let url = defaultConfigURL(task.id)
-            if !FileManager.default.fileExists(atPath: url.path) {
-                try FlowConfig.encode(task).write(to: url, options: .atomic)
+            if try catalogUnlocked().files[task.id] == nil {
+                let url = try availableConfigURL(for: task)
+                try writeNewConfig(FlowConfig.encode(task), to: url)
                 try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: url.path)
                 try write(FlowMetadata(task: task), at: metadataURL(task.id))
             }

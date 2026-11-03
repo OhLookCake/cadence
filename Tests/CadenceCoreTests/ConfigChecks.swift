@@ -2,6 +2,63 @@ import Foundation
 import CadenceCore
 
 extension CadenceCoreTests {
+    func testConfigNamesFollowWorkflowsAndPreserveIdentity() throws {
+        let store = try temporaryStore(); var task = ScheduledTask(); task.name = "Daily report"
+        try store.save(task)
+        let original = try store.tasks().first!
+        let originalURL = try store.catalog().files[task.id]!
+        XCTAssertEqual(originalURL.lastPathComponent, "Daily_report.cadence.json")
+        let cursor = TaskState(revision: original.scheduleRevision, nextDue: date("2026-11-10T09:00:00Z"))
+        try store.write(cursor, at: store.stateURL(task.id))
+        var run = RunRecord(task: original, scheduledAt: original.createdAt, manual: true); run.status = .succeeded
+        try store.saveRun(run)
+        var renamed = original; renamed.name = "Morning summary"
+        try store.save(renamed, expecting: original)
+        XCTAssertEqual(try store.catalog().files[task.id]?.lastPathComponent, "Morning_summary.cadence.json")
+        XCTAssertFalse(FileManager.default.fileExists(atPath: originalURL.path))
+        XCTAssertEqual(try store.tasks().first?.id, original.id)
+        XCTAssertEqual(try store.tasks().first?.scheduleRevision, original.scheduleRevision)
+        XCTAssertEqual(try store.runs().first?.id, run.id)
+        XCTAssertEqual(try store.read(TaskState.self, at: store.stateURL(task.id)).nextDue, cursor.nextDue)
+        // Hand-edited names and existing UUID files are normalized on reload, without rewriting JSON.
+        let currentURL = try store.catalog().files[task.id]!
+        renamed.name = "Changed outside"
+        try store.exportConfig(renamed, to: currentURL)
+        let bytes = try Data(contentsOf: currentURL)
+        let legacyURL = store.flowsDirectory.appendingPathComponent("\(task.id.uuidString.lowercased()).cadence.json")
+        try FileManager.default.moveItem(at: currentURL, to: legacyURL)
+        let renamedURL = try store.catalog().files[task.id]!
+        XCTAssertEqual(renamedURL.lastPathComponent, "Changed_outside.cadence.json")
+        XCTAssertEqual(try Data(contentsOf: renamedURL), bytes)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: legacyURL.path))
+        XCTAssertEqual(try store.catalog().files[task.id], renamedURL)
+        var lowercase = try store.tasks().first!; lowercase.name = "changed outside"
+        try store.save(lowercase)
+        XCTAssertEqual(try store.catalog().files[task.id]?.lastPathComponent, "changed_outside.cadence.json")
+    }
+    func testConfigNameCollisionsAndSafeFilenames() throws {
+        let store = try temporaryStore()
+        var first = ScheduledTask(); first.name = "Daily report"
+        var second = ScheduledTask(); second.name = first.name
+        try store.save(first); try store.save(second)
+        let files = try store.catalog().files
+        XCTAssertEqual(files[first.id]?.lastPathComponent, "Daily_report.cadence.json")
+        XCTAssertEqual(files[second.id]?.lastPathComponent, "Daily_report_2.cadence.json")
+        XCTAssertEqual(try store.catalog().files, files)
+        let invalid = store.flowsDirectory.appendingPathComponent("Blocked.cadence.json")
+        try Data("invalid".utf8).write(to: invalid)
+        var blocked = ScheduledTask(); blocked.name = "Blocked"; try store.save(blocked)
+        XCTAssertEqual(try store.catalog().files[blocked.id]?.lastPathComponent, "Blocked_2.cadence.json")
+        XCTAssertEqual(try String(contentsOf: invalid), "invalid")
+        XCTAssertEqual(CadenceStore.configFileName(for: "  Daily \t report\n"), "Daily_report.cadence.json")
+        XCTAssertEqual(CadenceStore.configFileName(for: "../Reports: one/two\\three"), "_Reports_one_two_three.cadence.json")
+        XCTAssertEqual(CadenceStore.configFileName(for: "..."), "Untitled_workflow.cadence.json")
+        XCTAssertEqual(CadenceStore.configFileName(for: "日本語 report"), "日本語_report.cadence.json")
+        XCTAssertLessThan(CadenceStore.configFileName(for: String(repeating: "語", count: 200)).utf8.count, 256)
+        // A duplicate ID must stay rejected; saving must not manufacture a third copy.
+        try store.exportConfig(first, to: store.flowsDirectory.appendingPathComponent("duplicate.json"))
+        XCTAssertThrowsError(try store.save(first))
+    }
     func testOneConfigPerFlowAndExternalEdit() throws {
         let store = try temporaryStore()
         var first = ScheduledTask(); first.name = "First flow"
@@ -17,7 +74,7 @@ extension CadenceCoreTests {
         XCTAssertEqual(refreshed.name, edited.name); XCTAssertEqual(refreshed.steps[0].body, "printf changed")
         XCTAssertEqual(refreshed.scheduleRevision, original.scheduleRevision)
         XCTAssertEqual(try store.tasks().first(where: { $0.id == second.id })?.name, second.name)
-        let raw = try JSONSerialization.jsonObject(with: Data(contentsOf: firstURL)) as! [String: Any]
+        let raw = try JSONSerialization.jsonObject(with: Data(contentsOf: try store.catalog().files[first.id]!)) as! [String: Any]
         XCTAssertNil(raw["scheduleRevision"]); XCTAssertNil(raw["scheduleActivatedAt"]); XCTAssertNil(raw["createdAt"])
     }
     func testMinimalConfigImportAndStableStepIDs() throws {
@@ -40,12 +97,12 @@ extension CadenceCoreTests {
         XCTAssertEqual(imported.notes, "Created in a text editor")
         XCTAssertEqual(imported.schedule.hour, 8); XCTAssertEqual(imported.schedule.minute, 30)
         XCTAssertEqual(imported.steps.first?.body, "printf report")
-        XCTAssertEqual(try FlowConfig.decode(Data(contentsOf: store.defaultConfigURL(imported.id))).schema, "https://example.invalid/cadence.schema.json")
+        XCTAssertEqual(try FlowConfig.decode(Data(contentsOf: store.catalog().files[imported.id]!)).schema, "https://example.invalid/cadence.schema.json")
         try store.save(imported, expecting: imported)
-        XCTAssertEqual(try FlowConfig.decode(Data(contentsOf: store.defaultConfigURL(imported.id))).schema, "https://example.invalid/cadence.schema.json")
+        XCTAssertEqual(try FlowConfig.decode(Data(contentsOf: store.catalog().files[imported.id]!)).schema, "https://example.invalid/cadence.schema.json")
         XCTAssertEqual(try store.tasks().first?.steps.map(\.id), imported.steps.map(\.id))
         // A managed handwritten file may also omit step IDs; polling must not manufacture new ones.
-        let managed = store.defaultConfigURL(imported.id)
+        let managed = try store.catalog().files[imported.id]!
         var object = try JSONSerialization.jsonObject(with: Data(contentsOf: managed)) as! [String: Any]
         object["steps"] = [["kind": "shell", "body": "printf edited"]]
         try JSONSerialization.data(withJSONObject: object).write(to: managed, options: .atomic)
@@ -80,13 +137,13 @@ extension CadenceCoreTests {
         try store.save(task)
         let base = try store.tasks().first!
         var external = base; external.schedule.hour = 17
-        try store.exportConfig(external, to: store.defaultConfigURL(task.id))
+        try store.exportConfig(external, to: store.catalog().files[task.id]!)
         let revised = try store.tasks().first!
         XCTAssertFalse(revised.scheduleRevision == base.scheduleRevision)
         XCTAssertEqual(revised.schedule.hour, 17)
         XCTAssertEqual(try store.tasks().first?.scheduleRevision, revised.scheduleRevision)
         var enabled = revised; enabled.enabled = true
-        try store.exportConfig(enabled, to: store.defaultConfigURL(task.id))
+        try store.exportConfig(enabled, to: store.catalog().files[task.id]!)
         let active = try store.tasks().first!
         XCTAssertFalse(active.scheduleRevision == revised.scheduleRevision)
     }
@@ -123,7 +180,7 @@ extension CadenceCoreTests {
         try store.save(task)
         var external = try store.tasks().first!
         external.steps[0].body = "printf new"
-        try store.exportConfig(external, to: store.defaultConfigURL(task.id))
+        try store.exportConfig(external, to: store.catalog().files[task.id]!)
         try TaskRunner.run(store: store, id: task.id, manual: true)
         XCTAssertEqual(try store.runs().first?.status, .succeeded)
         XCTAssertEqual(try String(contentsOf: store.root.appendingPathComponent("answer.txt")), "new")
@@ -148,7 +205,7 @@ extension CadenceCoreTests {
         let raw = try JSONSerialization.jsonObject(with: data) as! [String: Any]
         let kinds = (raw["steps"] as! [[String: Any]]).map { $0["kind"] as! String }
         XCTAssertTrue(kinds.contains("userInput")); XCTAssertTrue(kinds.contains("alert"))
-        let exampleURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Examples/daily-report.cadence.json")
+        let exampleURL = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("Examples/Daily_report.cadence.json")
         if FileManager.default.fileExists(atPath: exampleURL.path) {
             let example = try store.importConfig(at: exampleURL)
             XCTAssertEqual(example.steps.map(\.kind), [.shell, .response])
