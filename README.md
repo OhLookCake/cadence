@@ -41,6 +41,8 @@ Calendar schedules use the task’s explicit time zone. Choose from the time-zon
 - **Show alert:** displays literal text with variables, defaulting to `{{previous_output}}`. It preserves the previous output for later steps. Each response has its own dismissal timeout. The dialog displays the last 6,000 characters; the step’s captured output remains in the run folder.
 - **Save to file:** choose a destination and content, defaulting to `{{previous_output}}`. A whole previous or named output reference saves the full captured file, including large process results. Custom text supports the same variables as prompts. Relative paths use the working directory; the destination folder must exist. Existing files are replaced atomically.
 
+Model fields offer editable dropdowns: Codex uses the CLI's cached model list, and local LLM steps list models from the selected server. You can also type a custom model name or connection URL. Leave the Codex model empty to use its CLI default.
+
 Questions, responses, and file saves use the same add, edit, reorder, remove, and per-step execution controls as other steps. Existing task-level question/result settings automatically load as a question at the beginning and a response at the end. Saved definitions use only workflow steps. A failure stops later steps unless that failed step is configured to continue.
 
 ### Conditions and earlier results

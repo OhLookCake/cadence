@@ -245,7 +245,7 @@ struct WorkflowEditor: View {
                     }.buttonStyle(.borderless).padding(16)
                     if !collapsedSteps.contains(step.id) {
                         Divider()
-                        StepFields(step: $step, earlierSteps: Array(task.steps.prefix(index)))
+                        StepFields(step: $step, earlierSteps: Array(task.steps.prefix(index)), llmAPIKey: ModelChoices.apiKey(in: task.environment))
                             .padding(20).frame(maxWidth: .infinity, alignment: .leading)
                     }
                 }.background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
@@ -322,7 +322,9 @@ struct WorkflowConnector: View {
 struct StepFields: View {
     @Binding var step: TaskStep
     var earlierSteps: [TaskStep] = []
+    var llmAPIKey = ""
     @State private var executionExpanded = false
+    @State private var codexModels: [String] = []
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
             EditorPicker(title: "Step type", selection: Binding(get: { step.kind }, set: { kind in
@@ -440,13 +442,12 @@ struct StepFields: View {
                     VStack(alignment: .leading, spacing: 14) { modelField; sandboxField }
                 }
                 hint("Workspace write allows changes in the working directory. Background runs cannot request approvals.")
-            }
+            }.task { codexModels = ModelChoices.codex() }
         case .localLLM:
             Divider()
             VStack(alignment: .leading, spacing: 14) {
                 Text("Model connection").font(.system(size: 12, weight: .medium))
-                EditorField(title: "Model", text: $step.model).frame(maxWidth: 280, alignment: .leading)
-                EditorField(title: "Chat completions URL", text: $step.endpoint, monospaced: true).frame(maxWidth: 560, alignment: .leading)
+                LocalModelConnectionFields(model: $step.model, endpoint: $step.endpoint, apiKey: llmAPIKey)
                 hint("Works with Ollama, LM Studio, and compatible servers. Optional API key: CADENCE_LLM_API_KEY in Environment.")
             }
         case .script:
@@ -458,7 +459,10 @@ struct StepFields: View {
         default: EmptyView()
         }
     }
-    var modelField: some View { EditorField(title: "Model (optional)", text: $step.model).frame(maxWidth: 280, alignment: .leading) }
+    var modelField: some View {
+        EditorComboField(title: "Model (optional)", text: $step.model, choices: codexModels, placeholder: "Use CLI default")
+            .frame(maxWidth: 280, alignment: .leading)
+    }
     var sandboxField: some View {
         EditorPicker(title: "Sandbox", selection: $step.sandbox, width: 240) {
             Text("Read only").tag("read-only"); Text("Workspace write").tag("workspace-write")
