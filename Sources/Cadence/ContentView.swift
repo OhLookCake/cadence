@@ -127,7 +127,6 @@ struct DashboardView: View {
                     VStack(alignment: .leading, spacing: 9) {
                         Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()).uppercased()).font(.system(size: 10, weight: .medium)).tracking(1.5).foregroundStyle(.secondary)
                         Text("Your task workspace").font(.system(size: 32, weight: .semibold, design: .rounded))
-                        Text("Schedules, workflows, and recent activity on this Mac.").font(.system(size: 14)).foregroundStyle(.secondary)
                     }
                     Spacer()
                     Image(systemName: "clock.badge.checkmark").font(.system(size: 48, weight: .ultraLight)).foregroundStyle(Color.cadence).padding(.trailing, 10)
@@ -141,7 +140,6 @@ struct DashboardView: View {
                     VStack(spacing: 16) {
                         ZStack { Circle().fill(Color.cadence.opacity(0.08)).frame(width: 88, height: 88); Image(systemName: "calendar.badge.plus").font(.system(size: 35, weight: .light)).foregroundStyle(Color.cadence) }
                         Text("A little less to remember.").font(.system(size: 23, weight: .medium, design: .rounded))
-                        Text("Set up a task once. Choose when it runs, what it does,\nand how it catches up when your Mac is away.").multilineTextAlignment(.center).foregroundStyle(.secondary).lineSpacing(4)
                         Button("Create your first task") { model.create() }.buttonStyle(.borderedProminent).controlSize(.large).padding(.top, 4)
                         Button("Import Config…") { model.importTasks() }.buttonStyle(.bordered).controlSize(.large)
                     }.frame(maxWidth: .infinity).padding(.vertical, 40).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
@@ -163,19 +161,15 @@ struct DashboardView: View {
                     Text("START WITH A STEP").font(.system(size: 10, weight: .semibold)).tracking(1.4).foregroundStyle(.secondary)
                     LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 12) { ForEach(StepKind.allCases) { kind in
                         Button { model.create(kind) } label: {
-                            VStack(alignment: .leading, spacing: 12) { Image(systemName: kind.symbol).font(.system(size: 20, weight: .light)).foregroundStyle(Color.cadence); Text(kind.title).font(.system(size: 12, weight: .medium)); Text(templateDescription(kind)).font(.system(size: 10)).foregroundStyle(.secondary) }.frame(maxWidth: .infinity, minHeight: 82, alignment: .leading).padding(16).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+                            VStack(alignment: .leading, spacing: 12) { Image(systemName: kind.symbol).font(.system(size: 20, weight: .light)).foregroundStyle(Color.cadence); Text(kind.title).font(.system(size: 12, weight: .medium)) }.frame(maxWidth: .infinity, minHeight: 82, alignment: .leading).padding(16).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
                         }.buttonStyle(.plain)
                     } }
                 }
-                HStack { Image(systemName: "moon.zzz"); Text("Missed a window? Each task decides whether to skip, catch up once, or replay its backlog.") }.font(.system(size: 11)).foregroundStyle(.secondary)
             }.padding(28).frame(maxWidth: 1760).frame(maxWidth: .infinity)
         }.navigationTitle("Overview").background(Color.canvas)
     }
     func metric(_ title: String, value: Int, symbol: String, color: Color) -> some View {
         HStack { VStack(alignment: .leading, spacing: 7) { Text("\(value)").font(.system(size: 29, weight: .medium, design: .rounded)); Text(title).font(.system(size: 11)).foregroundStyle(.secondary) }; Spacer(); Image(systemName: symbol).font(.system(size: 23, weight: .light)).foregroundStyle(color) }.padding(20).frame(maxWidth: .infinity).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 13))
-    }
-    func templateDescription(_ kind: StepKind) -> String {
-        switch kind { case .shell: return "A command or snippet"; case .script: return "Your existing scripts"; case .codex: return "An agent in your workspace"; case .localLLM: return "Ollama, LM Studio & more"; case .question: return "Ask for input along the way"; case .response: return "Display a result or message" }
     }
 }
 
@@ -346,7 +340,6 @@ struct TaskDetailView: View {
             Label("JSON · version 1", systemImage: "checkmark.circle").font(.caption).foregroundStyle(.secondary)
             Text(url.lastPathComponent).font(.system(size: 11, design: .monospaced))
                 .lineLimit(1).truncationMode(.middle).help(url.path).textSelection(.enabled)
-            Text("Changes here and in this file stay in sync.").font(.caption).foregroundStyle(.secondary)
             HStack {
                 Button { model.editConfig(url) } label: { Label("Edit File…", systemImage: "square.and.pencil") }
                 Spacer()

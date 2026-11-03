@@ -145,7 +145,6 @@ struct WorkingDirectoryFields: View {
                     if panel.runModal() == .OK, let url = panel.url { task.workingDirectory = url.path }
                 }.fixedSize()
             }
-            Text("All steps run from this directory.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -184,7 +183,6 @@ struct WorkflowEditor: View {
                             Text("\(task.steps.count) steps").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                         }.contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityLabel(expanded ? "Collapse Workflow" : "Expand Workflow")
-                    Text("Drag a step’s grip to a connector to reorder. Output flows from one step to the next.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                 }
                 Spacer()
                 addMenu

@@ -60,7 +60,6 @@ private struct TimeZoneSearch: View {
                         .onChange(of: highlighted) { _, value in if let value { proxy.scrollTo(value) } }
                 }.frame(height: 285)
             }
-            Text("Type to filter. Use ↑ / ↓ and Return to choose.").font(.caption).foregroundStyle(.secondary)
         }.padding(18).frame(width: 460)
             .onAppear { highlighted = selection; searchFocused = true }
             .onChange(of: query) { _, _ in highlighted = matches.first }
