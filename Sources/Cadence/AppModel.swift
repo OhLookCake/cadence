@@ -145,9 +145,20 @@ import CadenceCore
     }
     func importTasks() {
         let panel = NSOpenPanel(); panel.allowedContentTypes = [.json]; panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.title = "Import Task Config"
+        panel.prompt = "Import"
+        panel.message = "Choose JSON config files to create new paused tasks."
         guard panel.runModal() == .OK else { return }
-        do {
-            for url in panel.urls {
+        importTasks(from: panel.urls)
+    }
+    func importTasks(from urls: [URL]) {
+        var failures: [String] = []
+        for url in urls {
+            let accessed = url.startAccessingSecurityScopedResource()
+            defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+            do {
+                guard url.isFileURL else { throw CadenceError.message("Choose a local JSON config file.") }
                 let data = try Data(contentsOf: url)
                 if (try? JSONSerialization.jsonObject(with: data)) is [Any] {
                     // Continue accepting exports from the previous aggregate format.
@@ -156,9 +167,11 @@ import CadenceCore
                         try task.validate(); try store.save(task); selection = task.id
                     }
                 } else { selection = try store.importConfig(at: url).id }
-            }
-            refreshCount = 0; refresh()
-        } catch { self.error = error.localizedDescription }
+            } catch { failures.append("\(url.lastPathComponent): \(error.localizedDescription)") }
+        }
+        // Show successful imports even when another selected file is invalid.
+        refreshCount = 0; refresh()
+        if !failures.isEmpty { error = failures.joined(separator: "\n\n") }
     }
     func editConfig(_ url: URL) {
         let editor = URL(fileURLWithPath: "/System/Applications/TextEdit.app")

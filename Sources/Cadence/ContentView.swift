@@ -38,12 +38,19 @@ struct ContentView: View {
                             .contextMenu { Button("Open Task") { model.selection = task.id }; Button("Run Now") { model.runNow(task) }; Button("Duplicate…") { model.duplicate(task) } }
                     }
                 }.listStyle(.sidebar)
-                Button { model.create() } label: {
-                    Label("New Task", systemImage: "plus").frame(maxWidth: .infinity)
+                VStack(spacing: 8) {
+                    Button { model.create() } label: {
+                        Label("New Task", systemImage: "plus").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .help("New Task (⌘N)")
+                    Button { model.importTasks() } label: {
+                        Label("Import Config…", systemImage: "square.and.arrow.down").frame(maxWidth: .infinity)
+                    }
+                    .buttonStyle(.bordered)
+                    .help("Create paused tasks from JSON config files. You can also drop files onto the sidebar.")
                 }
-                .buttonStyle(.borderedProminent)
                 .controlSize(.large)
-                .help("New Task (⌘N)")
                 .padding(.horizontal, 16)
                 .padding(.vertical, 12)
                 Divider().padding(.horizontal, 16)
@@ -51,7 +58,13 @@ struct ContentView: View {
                     Label("Powered by launchd", systemImage: "desktopcomputer").font(.caption).foregroundStyle(.secondary)
                     Text("Runs locally, even with this window closed.").font(.system(size: 10)).foregroundStyle(.tertiary)
                 }.padding(20)
-            }.navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 280)
+            }
+            .dropDestination(for: URL.self) { urls, _ in
+                guard !urls.isEmpty, urls.allSatisfy(\.isFileURL) else { return false }
+                model.importTasks(from: urls)
+                return true
+            }
+            .navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 280)
         } detail: {
             VStack(spacing: 0) {
             if !model.configIssues.isEmpty || !model.registrationIssues.isEmpty { ConfigHealthBanner() }
@@ -61,6 +74,10 @@ struct ContentView: View {
         }
         .navigationSplitViewStyle(.prominentDetail)
         .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button { model.importTasks() } label: { Label("Import Config…", systemImage: "square.and.arrow.down") }
+                    .help("Import JSON config files as new paused tasks")
+            }
             ToolbarItem(placement: .primaryAction) { Button { model.create() } label: { Label("New Task", systemImage: "plus") }.buttonStyle(.borderedProminent).help("New Task (⌘N)") }
         }
         .alert("Cadence", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(model.error ?? "") }
@@ -126,6 +143,7 @@ struct DashboardView: View {
                         Text("A little less to remember.").font(.system(size: 23, weight: .medium, design: .rounded))
                         Text("Set up a task once. Choose when it runs, what it does,\nand how it catches up when your Mac is away.").multilineTextAlignment(.center).foregroundStyle(.secondary).lineSpacing(4)
                         Button("Create your first task") { model.create() }.buttonStyle(.borderedProminent).controlSize(.large).padding(.top, 4)
+                        Button("Import Config…") { model.importTasks() }.buttonStyle(.bordered).controlSize(.large)
                     }.frame(maxWidth: .infinity).padding(.vertical, 40).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
                 } else {
                     CadenceCard(title: "Coming up", symbol: "calendar") {

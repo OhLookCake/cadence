@@ -12,7 +12,7 @@ Use **Edit Config File** to open the task's file in TextEdit, or **Show in Finde
 
 ## Create or import
 
-**File → Import Config…** accepts one or more JSON files. Imports get new task IDs and start paused, even if the source says enabled. The source file is copied into the managed folder; subsequent edits should target the managed file shown on the task. **Export Config…** exports one task in the same format.
+Choose **Import Config…** in the sidebar, toolbar, or File menu, then select one or more JSON files. You can also drag config files from Finder onto the sidebar. Imports get new task IDs and start paused, even if the source says enabled. The source file is copied into the managed folder; subsequent edits should target the managed file shown on the task. If a file is invalid, its filename and error are shown while other valid files still import. **Export Config…** exports one task in the same format.
 
 [This example](../Examples/daily-report.cadence.json) can be imported as written. IDs are optional on import. Managed files require a task ID; imports and UI saves supply it. Handwritten steps may omit IDs and get stable identities when loaded.
 
