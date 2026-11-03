@@ -38,12 +38,20 @@ struct ContentView: View {
                             .contextMenu { Button("Open Task") { model.selection = task.id }; Button("Run Now") { model.runNow(task) }; Button("Duplicate…") { model.duplicate(task) } }
                     }
                 }.listStyle(.sidebar)
+                Button { model.create() } label: {
+                    Label("New Task", systemImage: "plus").frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.borderedProminent)
+                .controlSize(.large)
+                .help("New Task (⌘N)")
+                .padding(.horizontal, 16)
+                .padding(.vertical, 12)
                 Divider().padding(.horizontal, 16)
                 VStack(alignment: .leading, spacing: 7) {
                     Label("Powered by launchd", systemImage: "desktopcomputer").font(.caption).foregroundStyle(.secondary)
                     Text("Runs locally, even with this window closed.").font(.system(size: 10)).foregroundStyle(.tertiary)
                 }.padding(20)
-            }.navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 340)
+            }.navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 280)
         } detail: {
             VStack(spacing: 0) {
             if !model.configIssues.isEmpty || !model.registrationIssues.isEmpty { ConfigHealthBanner() }
@@ -51,6 +59,7 @@ struct ContentView: View {
             else { DashboardView() }
             }
         }
+        .navigationSplitViewStyle(.prominentDetail)
         .toolbar {
             ToolbarItem(placement: .primaryAction) { Button { model.create() } label: { Label("New Task", systemImage: "plus") }.buttonStyle(.borderedProminent).help("New Task (⌘N)") }
         }
