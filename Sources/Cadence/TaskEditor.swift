@@ -7,10 +7,11 @@ struct EditorField: View {
     let title: String
     @Binding var text: String
     var monospaced = false
+    var placeholder = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             Text(title).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            TextField("", text: $text).textFieldStyle(.roundedBorder)
+            TextField(placeholder, text: $text).textFieldStyle(.roundedBorder)
                 .font(monospaced ? .system(size: 12, design: .monospaced) : .system(size: 13))
                 .accessibilityLabel(title)
         }
@@ -35,14 +36,15 @@ struct DurationField: View {
     let title: String
     @Binding var seconds: Int
     var body: some View {
-        HStack(spacing: 10) {
-            Text(title).fixedSize(horizontal: true, vertical: true)
-            Spacer(minLength: 12)
-            TextField("", value: $seconds, format: .number.grouping(.never))
-                .textFieldStyle(.roundedBorder).multilineTextAlignment(.trailing)
-                .frame(width: 90).labelsHidden().accessibilityLabel(title + " in seconds")
-            Text("seconds").foregroundStyle(.secondary).fixedSize()
-        }.font(.system(size: 12))
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                TextField("", value: $seconds, format: .number.grouping(.never))
+                    .textFieldStyle(.roundedBorder).frame(width: 80)
+                    .labelsHidden().accessibilityLabel(title + " in seconds")
+                Text("seconds").foregroundStyle(.secondary)
+            }
+        }.font(.system(size: 12)).frame(maxWidth: 260, alignment: .leading)
     }
 }
 struct CodeField: View {
@@ -214,38 +216,48 @@ struct WorkflowEditor: View {
             dropTarget(0) { WorkflowBoundary(title: "Start", symbol: "play.fill") }
             ForEach($task.steps) { $step in
                 let index = task.steps.firstIndex(where: { $0.id == step.id }) ?? 0
-                VStack(alignment: .leading, spacing: 20) {
-                    HStack(spacing: 12) {
+                VStack(alignment: .leading, spacing: 0) {
+                    HStack(spacing: 10) {
                         WorkflowDragHandle(transfer: WorkflowStepTransfer(taskID: task.id, stepID: step.id),
                                            title: "\(index + 1). \(step.name)", enabled: isEnabled)
-                            .frame(width: 28, height: 28)
+                            .frame(width: 18, height: 28)
                         Text(String(format: "%02d", index + 1)).font(.system(size: 12, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(.white).frame(width: 34, height: 34).background(Color.cadence, in: Circle())
-                        Image(systemName: step.kind.symbol).foregroundStyle(Color.cadence)
-                        TextField("Step name", text: $step.name).font(.system(size: 16, weight: .medium)).textFieldStyle(.plain).accessibilityLabel("Step \(index + 1) name")
+                            .foregroundStyle(Color.cadence).frame(width: 30, height: 30)
+                            .background(Color.cadence.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
+                        VStack(alignment: .leading, spacing: 4) {
+                            TextField("Step name", text: $step.name).font(.system(size: 14, weight: .semibold)).textFieldStyle(.plain).accessibilityLabel("Step \(index + 1) name")
+                            Label(step.kind.title, systemImage: step.kind.symbol).font(.caption).foregroundStyle(.secondary)
+                        }
                         if step.runIf != nil { Image(systemName: "line.3.horizontal.decrease.circle").foregroundStyle(Color.cadence).help("This step has a run condition") }
                         Spacer()
+                        Menu {
+                            Button("Move up", systemImage: "arrow.up") { move(step.id, -1) }.disabled(index == 0)
+                            Button("Move down", systemImage: "arrow.down") { move(step.id, 1) }.disabled(index == task.steps.count - 1)
+                            Divider()
+                            Button("Remove step", systemImage: "trash", role: .destructive) { task.steps.removeAll { $0.id == step.id } }
+                        } label: { Image(systemName: "ellipsis").frame(width: 24, height: 24) }
+                            .menuStyle(.borderlessButton).fixedSize().help("Step actions")
+                            .accessibilityLabel("Actions for " + step.name)
                         Button { toggleStep(step.id) } label: {
                             Image(systemName: collapsedSteps.contains(step.id) ? "chevron.right" : "chevron.down")
                         }.help(collapsedSteps.contains(step.id) ? "Expand step" : "Collapse step")
                             .accessibilityLabel((collapsedSteps.contains(step.id) ? "Expand " : "Collapse ") + step.name)
-                        Button { move(step.id, -1) } label: { Image(systemName: "arrow.up") }.disabled(index == 0).help("Move step up")
-                        Button { move(step.id, 1) } label: { Image(systemName: "arrow.down") }.disabled(index == task.steps.count - 1).help("Move step down")
-                        Button(role: .destructive) { task.steps.removeAll { $0.id == step.id } } label: { Image(systemName: "trash") }.help("Remove step")
-                    }.buttonStyle(.borderless)
+                    }.buttonStyle(.borderless).padding(16)
                     if !collapsedSteps.contains(step.id) {
-                        Divider().overlay(Color.cadence.opacity(0.15))
+                        Divider()
                         StepFields(step: $step, earlierSteps: Array(task.steps.prefix(index)))
+                            .padding(20).frame(maxWidth: .infinity, alignment: .leading)
                     }
-                }.padding(20).background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
-                    .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.cadence.opacity(0.35), lineWidth: 1.5).allowsHitTesting(false))
+                }.background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
+                    .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.12)).allowsHitTesting(false))
                 if index < task.steps.count - 1 { dropTarget(index + 1) { WorkflowConnector() } }
             }
             if task.steps.isEmpty { Text("Add a step to define what this task does.").foregroundStyle(.secondary).padding(.vertical, 15) }
             dropTarget(task.steps.count) { WorkflowBoundary(title: "End", symbol: "checkmark") }
             addMenu
             }
-        }.padding(20).background(Color.cadence.opacity(0.045), in: RoundedRectangle(cornerRadius: 18))
+        }.padding(20).frame(maxWidth: 880, alignment: .leading)
+            .background(Color.cadence.opacity(0.035), in: RoundedRectangle(cornerRadius: 18))
             .overlay(RoundedRectangle(cornerRadius: 18).strokeBorder(Color.cadence.opacity(0.15)).allowsHitTesting(false))
     }
     var addMenu: some View {
@@ -310,30 +322,43 @@ struct WorkflowConnector: View {
 struct StepFields: View {
     @Binding var step: TaskStep
     var earlierSteps: [TaskStep] = []
+    @State private var executionExpanded = false
     var body: some View {
-        VStack(alignment: .leading, spacing: 17) {
+        VStack(alignment: .leading, spacing: 20) {
             EditorPicker(title: "Step type", selection: Binding(get: { step.kind }, set: { kind in
                 let id = step.id, key = step.key; let condition = step.runIf
                 step = TaskStep.make(kind); step.id = id; step.key = key; step.runIf = condition
             })) {
                 ForEach(StepKind.allCases) { kind in Text(kind.title).tag(kind) }
             }
-            RunConditionFields(condition: $step.runIf, earlierSteps: earlierSteps)
-            if earlierSteps.contains(where: { !$0.key.isEmpty }) { referenceMenu }
-            configuration
+            primaryInput
             VStack(alignment: .leading, spacing: 7) {
-                EditorField(title: "Result name (optional)", text: $step.key, monospaced: true)
-                    .frame(maxWidth: 320, alignment: .leading)
-                Text("Reuse this result in later steps. Start with a lowercase letter; use letters, digits, and underscores (up to 40 characters).")
+                EditorField(title: "Result name (optional)", text: $step.key, monospaced: true, placeholder: "report_summary")
+                    .frame(maxWidth: 280, alignment: .leading)
+                    .help("Start with a lowercase letter. Use lowercase letters, digits, and underscores, up to 40 characters. Keep this name stable when renaming the step.")
+                Text("Lets later steps reuse this output by name.")
                     .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
-            Divider()
-            DurationField(title: durationTitle, seconds: $step.timeoutSeconds)
-            Toggle("Continue to the next step if this one fails", isOn: $step.continueOnFailure).font(.caption)
-            if step.kind == .question {
-                Text("Cancel or timeout stops the remaining workflow, even if continue on failure is enabled.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            toolSettings
+            if earlierSteps.contains(where: { !$0.key.isEmpty }) || step.runIf != nil {
+                Divider()
+                RunConditionFields(condition: $step.runIf, earlierSteps: earlierSteps)
             }
-        }
+            Divider()
+            DisclosureGroup(isExpanded: $executionExpanded) {
+                VStack(alignment: .leading, spacing: 16) {
+                    DurationField(title: durationTitle, seconds: $step.timeoutSeconds)
+                    Toggle("Continue after failure", isOn: $step.continueOnFailure).toggleStyle(.checkbox).font(.callout)
+                    if step.kind == .question { hint("Cancelling or timing out always stops the workflow.") }
+                }.padding(.top, 12)
+            } label: {
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Execution settings").font(.system(size: 12, weight: .medium))
+                    Text("\(step.timeoutSeconds) sec · \(step.continueOnFailure ? "Continue after failure" : "Stop on failure")")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+        }.frame(maxWidth: 720, alignment: .leading)
     }
     var referenceMenu: some View {
         Menu {
@@ -348,61 +373,108 @@ struct StepFields: View {
                     }
                 }
             }
-        } label: { Label("Copy earlier result reference", systemImage: "doc.on.doc") }
-        .fixedSize().help("Copy a reference, then paste it into this step. Quote environment variables in shell commands.")
+        } label: { Label("Copy result reference", systemImage: "doc.on.doc") }
+        .fixedSize().controlSize(.small).help("Copy an earlier result to paste into this input. Quote environment variables in shell commands.")
     }
     var durationTitle: String {
         switch step.kind { case .question: return "Wait for an answer"; case .response: return "Dismiss after"; default: return "Timeout" }
     }
-    @ViewBuilder var configuration: some View {
+    func hint(_ text: String) -> some View {
+        Text(text).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+    }
+    func textInput(_ title: String, label: String, height: CGFloat = 140, help: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(title).font(.system(size: 12, weight: .medium))
+                Spacer(minLength: 12)
+                if earlierSteps.contains(where: { !$0.key.isEmpty }) { referenceMenu }
+            }
+            CodeField(text: $step.body, height: height, label: label)
+            hint(help)
+        }
+    }
+    @ViewBuilder var primaryInput: some View {
         switch step.kind {
         case .shell:
-            Text("Command · /bin/zsh").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            CodeField(text: $step.body, label: "Inline shell command")
-            Text("Use quoted variables, such as ./report.sh --date \"$TASK_SCHEDULED_DATE\". Shell commands are executed literally.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            textInput("Command · /bin/zsh", label: "Inline shell command", help: "Use quoted variables such as \"$TASK_SCHEDULED_DATE\". Commands run literally in /bin/zsh.")
         case .script:
-            HStack(alignment: .bottom) {
-                EditorField(title: "Script file or executable", text: $step.scriptPath, monospaced: true)
-                Button("Choose File…") { chooseFile(script: true) }.fixedSize()
+            VStack(alignment: .leading, spacing: 14) {
+                fileField("Script file or executable", text: $step.scriptPath, script: true)
+                VStack(alignment: .leading, spacing: 8) {
+                    HStack {
+                        Text("Arguments").font(.system(size: 12, weight: .medium))
+                        Spacer(minLength: 12)
+                        if earlierSteps.contains(where: { !$0.key.isEmpty }) { referenceMenu }
+                    }
+                    CodeField(text: $step.arguments, height: 85, label: "Script arguments")
+                    hint("One argument per line, without shell quotes. The script path is supplied automatically. Variables such as {{input}} are supported.")
+                }
             }
-            HStack(alignment: .bottom) {
-                EditorField(title: "Interpreter (optional; leave empty to execute the file directly)", text: $step.executable, monospaced: true)
-                Button("Choose…") { chooseFile(script: false) }.fixedSize()
-            }
-            Text("For shell scripts use /bin/zsh. For Python select your uv environment’s .venv/bin/python.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            Text("Arguments · one per line, without shell quoting").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            CodeField(text: $step.arguments, height: 85, label: "Script arguments")
-            Text("The script path is passed automatically. Arguments support {{scheduled_date}}, {{input}}, and the other variables below.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         case .codex:
-            HStack(alignment: .bottom) {
-                EditorField(title: "Codex executable", text: $step.executable, monospaced: true)
-                Button("Choose…") { chooseFile(script: false) }.fixedSize()
-            }
-            EditorField(title: "Model (optional)", text: $step.model)
-            EditorPicker(title: "Sandbox", selection: $step.sandbox) { Text("Read only").tag("read-only"); Text("Workspace write").tag("workspace-write") }
-            Text("Prompt").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            CodeField(text: $step.body, label: "Codex prompt")
-            Text("Uses your CLI login. Workspace write permits file changes in the working directory. Background runs cannot ask for command approvals.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            textInput("Prompt", label: "Codex prompt", help: "Uses your Codex CLI login. Include {{previous_output}} or an earlier result to provide context.")
         case .localLLM:
-            EditorField(title: "Chat completions URL", text: $step.endpoint, monospaced: true)
-            EditorField(title: "Model", text: $step.model)
-            Text("Prompt").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            CodeField(text: $step.body, label: "Local LLM prompt")
-            Text("Uses an OpenAI-compatible server, such as Ollama or LM Studio. Optional authentication: CADENCE_LLM_API_KEY in the task environment.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            textInput("Prompt", label: "Local LLM prompt", help: "Include {{previous_output}} or an earlier result to provide context. Each step sends a separate request.")
         case .question:
-            Text("Question").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            CodeField(text: $step.body, height: 85, label: "Question text")
-            Text("The answer becomes {{input}} and {{previous_output}} for later steps, or $TASK_INPUT and $TASK_PREVIOUS_OUTPUT in shell commands. Questions can include output from earlier steps.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            textInput("Question", label: "Question text", height: 85, help: "The answer becomes {{input}} and {{previous_output}}, or $TASK_INPUT in commands.")
         case .response:
-            Text("Message").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            CodeField(text: $step.body, height: 85, label: "Response message")
-            Text("Use {{previous_output}} to show the preceding result, or write a message with variables. Showing a response preserves the previous output for the next step. Displays up to 6,000 characters.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            textInput("Message", label: "Response message", height: 85, help: "Displays up to 6,000 characters. The previous output stays available to the next step.")
         case .saveFile:
-            EditorField(title: "Destination file", text: $step.outputPath, monospaced: true)
-            Text("Content").font(.caption).foregroundStyle(.secondary)
-            CodeField(text: $step.body, label: "File content")
-            Text("Use {{previous_output}} to save the preceding result, or enter text with result references. Relative paths use the working directory. Replaces the file; the destination folder must already exist.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .bottom, spacing: 10) {
+                    EditorField(title: "Destination file", text: $step.outputPath, monospaced: true)
+                    Button("Choose…", action: chooseDestination).fixedSize()
+                }.frame(maxWidth: 560, alignment: .leading)
+                textInput("Content", label: "File content", help: "{{previous_output}} saves the full preceding result. Replaces the destination file; its folder must exist. Relative paths use the working directory.")
+            }
         }
+    }
+    @ViewBuilder var toolSettings: some View {
+        switch step.kind {
+        case .codex:
+            Divider()
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Codex settings").font(.system(size: 12, weight: .medium))
+                fileField("Codex executable", text: $step.executable, script: false)
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 20) { modelField.frame(minWidth: 220); sandboxField.frame(minWidth: 220) }
+                    VStack(alignment: .leading, spacing: 14) { modelField; sandboxField }
+                }
+                hint("Workspace write allows changes in the working directory. Background runs cannot request approvals.")
+            }
+        case .localLLM:
+            Divider()
+            VStack(alignment: .leading, spacing: 14) {
+                Text("Model connection").font(.system(size: 12, weight: .medium))
+                EditorField(title: "Model", text: $step.model).frame(maxWidth: 280, alignment: .leading)
+                EditorField(title: "Chat completions URL", text: $step.endpoint, monospaced: true).frame(maxWidth: 560, alignment: .leading)
+                hint("Works with Ollama, LM Studio, and compatible servers. Optional API key: CADENCE_LLM_API_KEY in Environment.")
+            }
+        case .script:
+            Divider()
+            VStack(alignment: .leading, spacing: 8) {
+                fileField("Interpreter (optional)", text: $step.executable, script: false)
+                hint("Leave empty to execute the file directly. Use /bin/zsh for shell scripts or your uv environment’s .venv/bin/python for Python.")
+            }
+        default: EmptyView()
+        }
+    }
+    var modelField: some View { EditorField(title: "Model (optional)", text: $step.model).frame(maxWidth: 280, alignment: .leading) }
+    var sandboxField: some View {
+        EditorPicker(title: "Sandbox", selection: $step.sandbox, width: 240) {
+            Text("Read only").tag("read-only"); Text("Workspace write").tag("workspace-write")
+        }
+    }
+    func fileField(_ title: String, text: Binding<String>, script: Bool) -> some View {
+        HStack(alignment: .bottom, spacing: 10) {
+            EditorField(title: title, text: text, monospaced: true)
+            Button("Choose…") { chooseFile(script: script) }.fixedSize()
+        }.frame(maxWidth: 560, alignment: .leading)
+    }
+    func chooseDestination() {
+        let panel = NSSavePanel(); panel.nameFieldStringValue = (step.outputPath as NSString).lastPathComponent
+        panel.canCreateDirectories = true
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        step.outputPath = url.path
     }
     func chooseFile(script: Bool) {
         let panel = NSOpenPanel(); panel.canChooseDirectories = false; panel.canChooseFiles = true; panel.showsHiddenFiles = true
@@ -426,24 +498,20 @@ struct RunConditionFields: View {
             Toggle("Run only when…", isOn: Binding(get: { condition != nil }, set: { enabled in
                 condition = enabled ? StepCondition(step: namedSteps.first?.key ?? "") : nil
             }))
-            .font(.callout).disabled(namedSteps.isEmpty && condition == nil)
+            .toggleStyle(.checkbox).font(.callout).disabled(namedSteps.isEmpty && condition == nil)
             if let selected = condition {
-                EditorPicker(title: "Earlier result", selection: current.step) {
+                EditorPicker(title: "Earlier result", selection: current.step, width: 440) {
                     if !namedSteps.contains(where: { $0.key == selected.step }) {
                         Text(selected.step.isEmpty ? "Choose an earlier result" : "Missing or later: \(selected.step)").tag(selected.step)
                     }
                     ForEach(namedSteps) { source in Text("\(source.name) · \(source.key)").tag(source.key) }
                 }
-                EditorPicker(title: "Check", selection: Binding(get: { selected.field }, set: { field in
-                    var updated = selected; updated.field = field
-                    if !field.operators.contains(updated.operation) { updated.operation = .equals }
-                    updated.value = field == .status ? "succeeded" : ""
-                    condition = updated
-                })) {
-                    ForEach(ConditionField.allCases) { field in Text(field.title).tag(field) }
-                }
-                EditorPicker(title: "Condition", selection: current.operation) {
-                    ForEach(selected.field.operators) { operation in Text(operation.title).tag(operation) }
+                ViewThatFits(in: .horizontal) {
+                    HStack(alignment: .top, spacing: 16) {
+                        checkField(selected).frame(minWidth: 160)
+                        operatorField(selected).frame(minWidth: 240)
+                    }
+                    VStack(alignment: .leading, spacing: 12) { checkField(selected); operatorField(selected) }
                 }
                 if selected.operation.needsValue {
                     if selected.field == .status {
@@ -451,7 +519,8 @@ struct RunConditionFields: View {
                             ForEach(StepResultStatus.conditionValues) { status in Text(status.rawValue.capitalized).tag(status.rawValue) }
                         }
                     } else {
-                        EditorField(title: "Compare with (literal text, case-sensitive)", text: current.value)
+                        EditorField(title: "Compare with (case-sensitive text)", text: current.value)
+                            .frame(maxWidth: 440, alignment: .leading)
                     }
                 }
                 Text(selected.field == .output
@@ -461,6 +530,21 @@ struct RunConditionFields: View {
             } else if namedSteps.isEmpty {
                 Text("Give an earlier step a result name to add a condition here.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
-        }.padding(14).background(Color.cadence.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
+        }.frame(maxWidth: 560, alignment: .leading)
+    }
+    func checkField(_ selected: StepCondition) -> some View {
+        EditorPicker(title: "Check", selection: Binding(get: { selected.field }, set: { field in
+            var updated = selected; updated.field = field
+            if !field.operators.contains(updated.operation) { updated.operation = .equals }
+            updated.value = field == .status ? "succeeded" : ""
+            condition = updated
+        }), width: 180) {
+            ForEach(ConditionField.allCases) { field in Text(field.title).tag(field) }
+        }
+    }
+    func operatorField(_ selected: StepCondition) -> some View {
+        EditorPicker(title: "Condition", selection: current.operation, width: 260) {
+            ForEach(selected.field.operators) { operation in Text(operation.title).tag(operation) }
+        }
     }
 }
