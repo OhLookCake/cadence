@@ -16,6 +16,21 @@ struct EditorField: View {
         }
     }
 }
+struct EditorPicker<Selection: Hashable, Options: View>: View {
+    let title: String
+    @Binding var selection: Selection
+    var width: CGFloat = 320
+    @ViewBuilder var options: () -> Options
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            Text(title).font(.caption).foregroundStyle(.secondary)
+            Picker(title, selection: $selection, content: options)
+                .labelsHidden().pickerStyle(.menu)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .accessibilityLabel(title)
+        }.frame(maxWidth: width, alignment: .leading)
+    }
+}
 struct DurationField: View {
     let title: String
     @Binding var seconds: Int
@@ -297,12 +312,12 @@ struct StepFields: View {
     var earlierSteps: [TaskStep] = []
     var body: some View {
         VStack(alignment: .leading, spacing: 17) {
-            Picker("Step type", selection: Binding(get: { step.kind }, set: { kind in
+            EditorPicker(title: "Step type", selection: Binding(get: { step.kind }, set: { kind in
                 let id = step.id, key = step.key; let condition = step.runIf
                 step = TaskStep.make(kind); step.id = id; step.key = key; step.runIf = condition
             })) {
                 ForEach(StepKind.allCases) { kind in Text(kind.title).tag(kind) }
-            }.frame(maxWidth: 380)
+            }
             EditorField(title: "Result name (optional)", text: $step.key, monospaced: true)
             Text("Use lowercase letters, digits, and underscores, starting with a letter. Later steps can reuse this result. Keep this name stable when changing the display name.")
                 .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -361,7 +376,7 @@ struct StepFields: View {
                 Button("Choose…") { chooseFile(script: false) }.fixedSize()
             }
             EditorField(title: "Model (optional)", text: $step.model)
-            Picker("Sandbox", selection: $step.sandbox) { Text("Read only").tag("read-only"); Text("Workspace write").tag("workspace-write") }.frame(maxWidth: 380)
+            EditorPicker(title: "Sandbox", selection: $step.sandbox) { Text("Read only").tag("read-only"); Text("Workspace write").tag("workspace-write") }
             Text("Prompt").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             CodeField(text: $step.body, label: "Codex prompt")
             Text("Uses your CLI login. Workspace write permits file changes in the working directory. Background runs cannot ask for command approvals.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -410,13 +425,13 @@ struct RunConditionFields: View {
             }))
             .font(.callout).disabled(namedSteps.isEmpty && condition == nil)
             if let selected = condition {
-                Picker("Earlier result", selection: current.step) {
+                EditorPicker(title: "Earlier result", selection: current.step) {
                     if !namedSteps.contains(where: { $0.key == selected.step }) {
                         Text(selected.step.isEmpty ? "Choose an earlier result" : "Missing or later: \(selected.step)").tag(selected.step)
                     }
                     ForEach(namedSteps) { source in Text("\(source.name) · \(source.key)").tag(source.key) }
                 }
-                Picker("Check", selection: Binding(get: { selected.field }, set: { field in
+                EditorPicker(title: "Check", selection: Binding(get: { selected.field }, set: { field in
                     var updated = selected; updated.field = field
                     if !field.operators.contains(updated.operation) { updated.operation = .equals }
                     updated.value = field == .status ? "succeeded" : ""
@@ -424,12 +439,12 @@ struct RunConditionFields: View {
                 })) {
                     ForEach(ConditionField.allCases) { field in Text(field.title).tag(field) }
                 }
-                Picker("Condition", selection: current.operation) {
+                EditorPicker(title: "Condition", selection: current.operation) {
                     ForEach(selected.field.operators) { operation in Text(operation.title).tag(operation) }
                 }
                 if selected.operation.needsValue {
                     if selected.field == .status {
-                        Picker("Value", selection: current.value) {
+                        EditorPicker(title: "Value", selection: current.value) {
                             ForEach(StepResultStatus.conditionValues) { status in Text(status.rawValue.capitalized).tag(status.rawValue) }
                         }
                     } else {
