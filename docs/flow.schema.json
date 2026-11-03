@@ -41,6 +41,28 @@
         "properties": {
           "id": {"type": "string", "format": "uuid"},
           "name": {"type": "string"},
+          "key": {"type": "string", "maxLength": 40, "pattern": "^([a-z][a-z0-9_]{0,39})?$"},
+          "runIf": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["step", "operator"],
+            "properties": {
+              "step": {"type": "string", "pattern": "^[a-z][a-z0-9_]{0,39}$"},
+              "field": {"enum": ["output", "status"], "default": "output"},
+              "operator": {"enum": ["isEmpty", "isNotEmpty", "equals", "notEquals", "contains", "notContains"]},
+              "value": {"type": "string", "default": ""}
+            },
+            "allOf": [{
+              "if": {"required": ["field"], "properties": {"field": {"const": "status"}}},
+              "then": {
+                "required": ["value"],
+                "properties": {
+                  "operator": {"enum": ["equals", "notEquals"]},
+                  "value": {"enum": ["succeeded", "failed", "skipped", "cancelled"]}
+                }
+              }
+            }]
+          },
           "kind": {"enum": ["shell", "script", "codex", "localLLM", "userInput", "alert", "question", "response"]},
           "body": {"type": "string", "minLength": 1},
           "scriptPath": {"type": "string", "minLength": 1},

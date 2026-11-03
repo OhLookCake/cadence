@@ -17,6 +17,7 @@ public struct StepContext {
     public var input = ""
     public var previous = ""
     public var previousFile = ""
+    public var results: [String: NamedStepResult] = [:]
     public init(now: Date, scheduled: Date, timeZone: TimeZone) { self.now = now; self.scheduled = scheduled; self.timeZone = timeZone }
     public var values: [String: String] {
         let formatter = DateFormatter(); formatter.locale = Locale(identifier: "en_US_POSIX"); formatter.timeZone = timeZone; formatter.dateFormat = "yyyy-MM-dd"
@@ -26,12 +27,18 @@ public struct StepContext {
     }
     public func expand(_ text: String) -> String {
         // A single pass prevents user input containing another placeholder from being expanded again.
-        let regex = try! NSRegularExpression(pattern: #"\{\{([a-z_]+)\}\}"#)
+        let regex = try! NSRegularExpression(pattern: #"\{\{([a-z_]+|steps\.[a-z][a-z0-9_]{0,39}\.(?:output|output_file|status))\}\}"#)
         let original = text as NSString
+        let baseValues = values
         var result = text
         for match in regex.matches(in: text, range: NSRange(location: 0, length: original.length)).reversed() {
             let name = original.substring(with: match.range(at: 1))
-            if let value = values[name], let range = Range(match.range, in: result) { result.replaceSubrange(range, with: value) }
+            let value: String?
+            if name.hasPrefix("steps.") {
+                let parts = name.split(separator: ".").map(String.init)
+                value = (results[parts[1]] ?? NamedStepResult(status: .pending)).value(parts[2])
+            } else { value = baseValues[name] }
+            if let value, let range = Range(match.range, in: result) { result.replaceSubrange(range, with: value) }
         }
         return result
     }
@@ -45,6 +52,17 @@ public struct StepContext {
         for (key, value) in values {
             // macOS limits exec's combined arguments and environment. Full output is available as a file.
             env["TASK_" + key.uppercased()] = key == "previous_output" ? String(value.suffix(16000)) : value
+        }
+        // Share a byte budget across named outputs so adding references does not exhaust exec's environment.
+        let resultBudget = min(16000, 48000 / max(1, results.values.filter { !$0.output.isEmpty }.count))
+        for (key, result) in results {
+            let prefix = "TASK_STEP_" + key.uppercased()
+            var bytes = result.output.utf8.suffix(resultBudget)
+            // A byte limit must not split the first Unicode scalar in the retained suffix.
+            while let first = bytes.first, first & 0xC0 == 0x80 { bytes = bytes.dropFirst() }
+            env[prefix + "_OUTPUT"] = String(decoding: bytes, as: UTF8.self)
+            env[prefix + "_OUTPUT_FILE"] = result.outputFile
+            env[prefix + "_STATUS"] = result.status.rawValue
         }
         env["TASK_ID"] = task.id.uuidString
         return env
@@ -237,6 +255,10 @@ public enum TaskRunner {
         // A previous worker died after claiming the occurrence. Do not repeat unknown side effects.
         for var record in try store.runs() where record.taskID == id && record.status == .running {
             record.status = .interrupted; record.finishedAt = Date(); record.message = "Runner stopped unexpectedly. This occurrence was claimed and will not replay automatically."
+            if var results = record.stepResults {
+                for index in results.indices where results[index].status == .running { results[index].status = .interrupted }
+                record.stepResults = results
+            }
             try store.saveRun(record)
         }
         let now = Date()
@@ -255,7 +277,7 @@ public enum TaskRunner {
         for scheduled in plan.dates {
             guard let current = try store.tasks().first(where: { $0.id == id }), manual || (current.enabled && current == task) else { break }
             if FileManager.default.fileExists(atPath: store.cancelURL(id).path) { break }
-            var record = RunRecord(task: task, scheduledAt: scheduled, manual: manual); record.pid = getpid()
+            var record = RunRecord(task: task, scheduledAt: scheduled, manual: manual); record.pid = getpid(); record.stepResults = []
             try store.saveRun(record)
             if !manual {
                 state.nextDue = task.missedPolicy == .latest ? plan.nextDue : task.schedule.next(after: scheduled)
@@ -264,25 +286,51 @@ public enum TaskRunner {
             }
             let executor = StepExecutor(store: store, task: task, run: record, dialogs: dialogs)
             var context = StepContext(now: Date(), scheduled: scheduled, timeZone: task.schedule.calendar.timeZone)
+            for step in task.steps where !step.key.isEmpty { context.results[step.key] = NamedStepResult(status: .pending) }
             var failures: [String] = []
+            var completed = 0, skipped = 0
             do {
                 for (index, step) in task.steps.enumerated() {
+                    if executor.cancelled { throw CadenceError.message("Cancelled by user.") }
+                    if let condition = step.runIf, !condition.matches(context.results[condition.step]) {
+                        let source = context.results[condition.step]?.status.rawValue ?? "missing"
+                        let reason = "Condition was false: \(condition.summary) (source status: \(source))."
+                        executor.append("\n━━ Step \(index + 1): \(step.name) · Skipped ━━\n\(reason)\n")
+                        record.stepResults?.append(StepRunRecord(step: step, status: .skipped, message: reason))
+                        if !step.key.isEmpty { context.results[step.key] = NamedStepResult(status: .skipped) }
+                        skipped += 1
+                        try store.saveRun(record)
+                        continue
+                    }
+                    let resultIndex = record.stepResults?.count ?? 0
+                    record.stepResults?.append(StepRunRecord(step: step, status: .running))
+                    try store.saveRun(record)
                     do {
                         let output = try executor.execute(step, index: index, context: context)
+                        let outputFile = store.runDirectory(record.id).appendingPathComponent("step-\(index + 1).output.txt").path
+                        if !step.key.isEmpty { context.results[step.key] = NamedStepResult(status: .succeeded, output: output, outputFile: outputFile) }
                         if step.kind == .question { context.input = output }
                         if step.kind != .response {
                             context.previous = output
-                            context.previousFile = store.runDirectory(record.id).appendingPathComponent("step-\(index + 1).output.txt").path
+                            context.previousFile = outputFile
                         }
+                        record.stepResults?[resultIndex].status = .succeeded
+                        completed += 1
+                        try store.saveRun(record)
                     }
                     catch {
                         executor.append("ERROR: \(error.localizedDescription)\n")
+                        let status: StepResultStatus = executor.cancelled || error is WorkflowCancelled ? .cancelled : .failed
+                        if !step.key.isEmpty { context.results[step.key] = NamedStepResult(status: status) }
+                        record.stepResults?[resultIndex].status = status
+                        record.stepResults?[resultIndex].message = error.localizedDescription
+                        try store.saveRun(record)
                         if !step.continueOnFailure || executor.cancelled || error is WorkflowCancelled { throw error }
                         failures.append(error.localizedDescription); context.previous = ""; context.previousFile = ""
                     }
                 }
                 record.status = failures.isEmpty ? .succeeded : .failed
-                record.message = failures.isEmpty ? "All \(task.steps.count) step(s) completed." : failures.joined(separator: "\n")
+                record.message = failures.isEmpty ? (skipped == 0 ? "All \(task.steps.count) step(s) completed." : "\(completed) step(s) completed; \(skipped) skipped.") : failures.joined(separator: "\n")
             } catch {
                 record.status = executor.cancelled || error is WorkflowCancelled ? .cancelled : .failed
                 record.message = error.localizedDescription; executor.append("\n\(record.message)\n")

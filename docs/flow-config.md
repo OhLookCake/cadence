@@ -77,7 +77,7 @@ An anchor is required for everyDays, interval, and once, for example **2026-11-0
 
 ## Steps
 
-Common optional fields: **id**, **name**, **timeoutSeconds**, **continueOnFailure**, **outputPath**. Timeouts range from 1 to 86,400 seconds. Output files are replaced atomically; their parent folders must exist.
+Common optional fields: **id**, **name**, **key**, **runIf**, **timeoutSeconds**, **continueOnFailure**, **outputPath**. Timeouts range from 1 to 86,400 seconds. Output files are replaced atomically; their parent folders must exist.
 
 | Kind | Fields |
 | --- | --- |
@@ -102,6 +102,56 @@ The older question and response kind names remain readable; new files use userIn
 For Python, select your uv project's .venv/bin/python as the interpreter. Relative script and interpreter paths resolve against workingDirectory.
 
 Arguments, prompts, messages, and output paths support {{date}}, {{timestamp}}, {{unix}}, {{scheduled_date}}, {{scheduled_timestamp}}, {{input}}, {{previous_output}}, and {{previous_output_file}}. Inline commands use quoted TASK_ environment variables instead of template substitution.
+
+## Conditions and named results
+
+Set an optional **key** on a step to name its result, independently of **name**.
+Keys must be unique and match `[a-z][a-z0-9_]{0,39}`. Later steps can use
+`{{steps.fetch.output}}`, `{{steps.fetch.output_file}}`, and
+`{{steps.fetch.status}}`. Shell source stays literal: use quoted
+`$TASK_STEP_FETCH_OUTPUT`, `$TASK_STEP_FETCH_OUTPUT_FILE`, and
+`$TASK_STEP_FETCH_STATUS`. Expansion is single-pass.
+
+~~~json
+{
+  "kind": "alert",
+  "body": "Changes: {{steps.fetch.output}}",
+  "runIf": {"step": "fetch", "field": "output", "operator": "isNotEmpty"}
+}
+~~~
+
+| runIf field | Meaning |
+| --- | --- |
+| step | Required key of an earlier step |
+| field | `output` (default) or `status` |
+| operator | Required; see below |
+| value | Literal, case-sensitive text; defaults to empty; required for status checks |
+
+Output operators: `isEmpty`, `isNotEmpty`, `equals`, `notEquals`, `contains`, and
+`notContains`. Empty checks ignore whitespace. Status supports `equals` and
+`notEquals` against `succeeded`, `failed`, `skipped`, or `cancelled`.
+
+False conditions skip the step without running it, asking questions, showing
+alerts, or writing output files. Skips preserve input and previous output and
+appear in run history. Output conditions require a successful source; they are
+false for skipped/failed sources, even for `isEmpty` or `notEquals`. Such sources
+have empty named output/file references. Successful alerts expose their own
+rendered message as a named result but preserve previous output as before.
+
+Use `continueOnFailure: true` on a failed source to reach its later status
+handlers. The overall run still fails. Cancellation always stops remaining
+steps. Conditions do not change scheduling or missed-run behavior.
+
+All per-step named references must target earlier steps; invalid, missing, and
+forward references fail validation before commands execute. Renaming display
+names is safe; changing keys requires updating references. Shared environment
+values can reference any existing key and are expanded again before each step.
+An unreached result has empty output/file and status `pending`.
+
+Output conditions and placeholders inspect the captured result (up to the last
+1 MB for process stdout). Named shell outputs are capped at 16,000 UTF-8 bytes
+each, sharing a 48,000-byte budget. The named output file contains full stdout
+or the captured answer. See the [complete example](../Examples/conditional-report.cadence.json).
 
 ## Migration and runtime data
 

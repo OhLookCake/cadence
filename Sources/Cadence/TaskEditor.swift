@@ -172,6 +172,10 @@ struct WorkflowEditor: View {
         _collapsedStepIDs = AppStorage(wrappedValue: "", "cadence.section.\(key).steps")
     }
     @State private var targetedInsertion: Int?
+    private var referenceIssue: String? {
+        do { try WorkflowReferences.validate(task); return nil }
+        catch { return error.localizedDescription }
+    }
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             HStack {
@@ -188,6 +192,10 @@ struct WorkflowEditor: View {
                 addMenu
             }
             if expanded {
+            if let issue = referenceIssue {
+                Label(issue, systemImage: "exclamationmark.triangle")
+                    .font(.callout).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+            }
             dropTarget(0) { WorkflowBoundary(title: "Start", symbol: "play.fill") }
             ForEach($task.steps) { $step in
                 let index = task.steps.firstIndex(where: { $0.id == step.id }) ?? 0
@@ -200,6 +208,7 @@ struct WorkflowEditor: View {
                             .foregroundStyle(.white).frame(width: 34, height: 34).background(Color.cadence, in: Circle())
                         Image(systemName: step.kind.symbol).foregroundStyle(Color.cadence)
                         TextField("Step name", text: $step.name).font(.system(size: 16, weight: .medium)).textFieldStyle(.plain).accessibilityLabel("Step \(index + 1) name")
+                        if step.runIf != nil { Image(systemName: "line.3.horizontal.decrease.circle").foregroundStyle(Color.cadence).help("This step has a run condition") }
                         Spacer()
                         Button { toggleStep(step.id) } label: {
                             Image(systemName: collapsedSteps.contains(step.id) ? "chevron.right" : "chevron.down")
@@ -211,7 +220,7 @@ struct WorkflowEditor: View {
                     }.buttonStyle(.borderless)
                     if !collapsedSteps.contains(step.id) {
                         Divider().overlay(Color.cadence.opacity(0.15))
-                        StepFields(step: $step)
+                        StepFields(step: $step, earlierSteps: Array(task.steps.prefix(index)))
                     }
                 }.padding(20).background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 14))
                     .overlay(RoundedRectangle(cornerRadius: 14).strokeBorder(Color.cadence.opacity(0.35), lineWidth: 1.5).allowsHitTesting(false))
@@ -285,13 +294,20 @@ struct WorkflowConnector: View {
 }
 struct StepFields: View {
     @Binding var step: TaskStep
+    var earlierSteps: [TaskStep] = []
     var body: some View {
         VStack(alignment: .leading, spacing: 17) {
             Picker("Step type", selection: Binding(get: { step.kind }, set: { kind in
-                let id = step.id; step = TaskStep.make(kind); step.id = id
+                let id = step.id, key = step.key; let condition = step.runIf
+                step = TaskStep.make(kind); step.id = id; step.key = key; step.runIf = condition
             })) {
                 ForEach(StepKind.allCases) { kind in Text(kind.title).tag(kind) }
             }.frame(maxWidth: 380)
+            EditorField(title: "Result name (optional)", text: $step.key, monospaced: true)
+            Text("Use lowercase letters, digits, and underscores, starting with a letter. Later steps can reuse this result. Keep this name stable when changing the display name.")
+                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            RunConditionFields(condition: $step.runIf, earlierSteps: earlierSteps)
+            if earlierSteps.contains(where: { !$0.key.isEmpty }) { referenceMenu }
             configuration
             Divider()
             DurationField(title: durationTitle, seconds: $step.timeoutSeconds)
@@ -301,6 +317,22 @@ struct StepFields: View {
             }
             EditorField(title: "Save output to file (optional)", text: $step.outputPath, monospaced: true)
         }
+    }
+    var referenceMenu: some View {
+        Menu {
+            ForEach(earlierSteps.filter { !$0.key.isEmpty }) { source in
+                Menu("\(source.name) · \(source.key)") {
+                    ForEach(["output", "output_file", "status"], id: \.self) { field in
+                        let reference = step.kind == .shell ? "$TASK_STEP_\(source.key.uppercased())_\(field.uppercased())" : "{{steps.\(source.key).\(field)}}"
+                        Button(reference) {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(reference, forType: .string)
+                        }
+                    }
+                }
+            }
+        } label: { Label("Copy earlier result reference", systemImage: "doc.on.doc") }
+        .fixedSize().help("Copy a reference, then paste it into this step. Quote environment variables in shell commands.")
     }
     var durationTitle: String {
         switch step.kind { case .question: return "Wait for an answer"; case .response: return "Dismiss after"; default: return "Timeout" }
@@ -357,5 +389,56 @@ struct StepFields: View {
             step.scriptPath = url.path
             step.executable = ["sh", "zsh", "bash"].contains(url.pathExtension.lowercased()) ? "/bin/zsh" : ""
         } else { step.executable = url.path }
+    }
+}
+
+struct RunConditionFields: View {
+    @Binding var condition: StepCondition?
+    let earlierSteps: [TaskStep]
+    var namedSteps: [TaskStep] { earlierSteps.filter { !$0.key.isEmpty } }
+    var current: Binding<StepCondition> {
+        Binding(get: { condition ?? StepCondition(step: namedSteps.first?.key ?? "") }, set: { condition = $0 })
+    }
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Toggle("Run only when…", isOn: Binding(get: { condition != nil }, set: { enabled in
+                condition = enabled ? StepCondition(step: namedSteps.first?.key ?? "") : nil
+            }))
+            .font(.callout).disabled(namedSteps.isEmpty && condition == nil)
+            if let selected = condition {
+                Picker("Earlier result", selection: current.step) {
+                    if !namedSteps.contains(where: { $0.key == selected.step }) {
+                        Text(selected.step.isEmpty ? "Choose an earlier result" : "Missing or later: \(selected.step)").tag(selected.step)
+                    }
+                    ForEach(namedSteps) { source in Text("\(source.name) · \(source.key)").tag(source.key) }
+                }
+                Picker("Check", selection: Binding(get: { selected.field }, set: { field in
+                    var updated = selected; updated.field = field
+                    if !field.operators.contains(updated.operation) { updated.operation = .equals }
+                    updated.value = field == .status ? "succeeded" : ""
+                    condition = updated
+                })) {
+                    ForEach(ConditionField.allCases) { field in Text(field.title).tag(field) }
+                }
+                Picker("Condition", selection: current.operation) {
+                    ForEach(selected.field.operators) { operation in Text(operation.title).tag(operation) }
+                }
+                if selected.operation.needsValue {
+                    if selected.field == .status {
+                        Picker("Value", selection: current.value) {
+                            ForEach(StepResultStatus.conditionValues) { status in Text(status.rawValue.capitalized).tag(status.rawValue) }
+                        }
+                    } else {
+                        EditorField(title: "Compare with (literal text, case-sensitive)", text: current.value)
+                    }
+                }
+                Text(selected.field == .output
+                     ? "Empty checks ignore whitespace. If the earlier step failed or was skipped, this output condition is false. Skipping preserves the previous output."
+                     : "A failed step must allow continuation for later steps to check its status. Skipped results have status skipped.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            } else if namedSteps.isEmpty {
+                Text("Give an earlier step a result name to add a condition here.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
+        }.padding(14).background(Color.cadence.opacity(0.05), in: RoundedRectangle(cornerRadius: 8))
     }
 }

@@ -42,6 +42,24 @@ Calendar schedules use the task’s explicit time zone. Choose from the time-zon
 
 Questions and responses use the same add, edit, reorder, remove, output-file, and per-step execution controls as other steps. Existing task-level question/result settings automatically load as a question at the beginning and a response at the end. Saved definitions use only workflow steps. A failure stops later steps unless that failed step is configured to continue.
 
+### Conditions and earlier results
+
+Give a step an optional **Result name**, such as `fetch` or `summary`, to reuse its output later. This is separate from its display name. Result names start with a lowercase letter and contain lowercase letters, digits, or underscores, up to 40 characters; each must be unique in the task. The **Copy earlier result reference** menu supplies the right syntax for the current step type.
+
+| Earlier result | Arguments, prompts, messages, output paths | Shell variable |
+| --- | --- | --- |
+| Captured output | `{{steps.fetch.output}}` | `$TASK_STEP_FETCH_OUTPUT` |
+| Full result file | `{{steps.fetch.output_file}}` | `$TASK_STEP_FETCH_OUTPUT_FILE` |
+| Step status | `{{steps.fetch.status}}` | `$TASK_STEP_FETCH_STATUS` |
+
+Enable **Run only when…** to check an earlier named result. Output conditions support empty/nonempty, equals/does not equal, and contains/does not contain. Empty checks ignore whitespace; other comparisons use literal, case-sensitive text. A status condition checks succeeded, failed, skipped, or cancelled. To reach a later failure-handling step, enable continuation on the failed source step. Cancellation still stops the workflow.
+
+A false condition skips only that step, leaving `input` and `previous_output` unchanged. History shows each reached step's status and the reason for a skip. Output conditions on failed or skipped sources are false, including empty and negative checks; use status conditions to handle those cases. Failed/skipped results have empty output and file references. An alert has its own named result while continuing to preserve `previous_output`.
+
+Template references and conditions must target earlier steps. Save rejects missing names and forward template references after reordering/removal; update references when changing a result name. Existing workflows run unconditionally until you add conditions. See the [importable conditional example](Examples/conditional-report.cadence.json) and [config details](docs/flow-config.md#conditions-and-named-results).
+
+Output comparisons and template references use the captured result (up to the last 1 MB for process output). Named shell output variables contain at most the last 16,000 UTF-8 bytes each and share a 48,000-byte budget; use their full output files for larger data. Shared environment values may use named references and are expanded afresh before each step. Unreached results have empty output/file and status `pending`.
+
 Each step has a timeout, optional output path, and a continue-after-failure switch. Any failed step makes the final run status failed, even if later steps continue successfully. Output paths replace existing files atomically; parent directories must exist. Different tasks run concurrently; a single task never overlaps with itself, including manual runs. **Stop** requests cancellation, terminating the active process and its ordinary descendants. Detached processes that intentionally reparent themselves are outside this guarantee.
 
 ### Parameters
@@ -115,7 +133,7 @@ CADENCE_LAUNCHD_TEST=1 zsh scripts/check.sh
 CADENCE_LAUNCHD_TEST=1 CADENCE_TEST_MODEL=qwen3.5:9b zsh scripts/check.sh
 ```
 
-Checks use temporary data directories. The launchd check removes its test agent after completion. They cover schedule arithmetic, DST, missed-run policies, durable claims, process timeouts, exclusive execution, parameter handling, output chaining, failure behavior, the Codex invocation contract, and launchd integration. The optional model check makes one local request with a short synthetic prompt.
+Checks use temporary data directories. The launchd check removes its test agent after completion. They cover schedule arithmetic, DST, missed-run policies, durable claims, process timeouts, exclusive execution, parameter handling, output chaining, conditions and named references, skipped-step history, failure behavior, the Codex invocation contract, and launchd integration. The optional model check makes one local request with a short synthetic prompt.
 
 ## Implementation references
 

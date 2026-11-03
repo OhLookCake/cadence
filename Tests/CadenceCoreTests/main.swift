@@ -24,6 +24,16 @@ class CheckCase {
     func cleanup() { for block in teardown.reversed() { block() }; teardown = [] }
 }
 let checks: [(String, (CadenceCoreTests) -> () throws -> Void)] = [
+    ("Conditional config and old history", CadenceCoreTests.testConditionalConfigAndOldHistory),
+    ("Conditional reference validation", CadenceCoreTests.testConditionalReferenceValidation),
+    ("Every condition operator", CadenceCoreTests.testEveryConditionOperator),
+    ("Conditional branches preserve previous output", CadenceCoreTests.testConditionalBranchesAndPreviousOutput),
+    ("Named results are single-pass across step kinds", CadenceCoreTests.testNamedResultsAreSinglePassAndSafeAcrossKinds),
+    ("Continued failure and skipped status branches", CadenceCoreTests.testContinuedFailureAndSkippedStatusBranches),
+    ("Invalid references stop before side effects", CadenceCoreTests.testInvalidReferencesStopBeforeSideEffects),
+    ("Large named outputs and environment budget", CadenceCoreTests.testLargeNamedOutputAndEnvironmentBudget),
+    ("Conditional question cancellation", CadenceCoreTests.testConditionalQuestionCancellation),
+    ("Conditional runner process and skipped chain", CadenceCoreTests.testConditionalRunnerProcessAndAllLaterStepsSkipped),
     ("All workflow kinds round trip through config", CadenceCoreTests.testConfigRoundTripAllKinds),
     ("One config per flow and external edits", CadenceCoreTests.testOneConfigPerFlowAndExternalEdit),
     ("Handwritten config import and stable IDs", CadenceCoreTests.testMinimalConfigImportAndStableStepIDs),

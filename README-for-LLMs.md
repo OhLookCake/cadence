@@ -88,9 +88,44 @@ Every step should specify `kind`. All kinds except `script` require a nonempty `
 | --- | --- | --- |
 | `id` | UUID string | Optional, unique within the task. Preserve existing values. Omitted IDs are derived from task identity and array position until saved. |
 | `name` | string | Optional display label; defaults to the step kind's title. |
+| `key` | string | Optional stable result name, unique in the task; `[a-z][a-z0-9_]{0,39}`. Independent of the display name. |
+| `runIf` | object | Optional condition on an earlier named result; see below. Omitted means unconditional. |
 | `timeoutSeconds` | integer | `1`–`86400`; default `600`, except userInput=`300`, alert=`120`. |
 | `continueOnFailure` | boolean | Default `false`. If true, later steps may run after failure, but the overall run still fails. |
 | `outputPath` | string | Default `""` (no extra output file). Relative to workingDirectory; supports `~` and placeholders. Replaces the destination atomically; its parent directory must already exist. |
+
+### Conditions and named results
+
+A step with `"key": "fetch"` exposes `{{steps.fetch.output}}`,
+`{{steps.fetch.output_file}}`, and `{{steps.fetch.status}}` to later steps.
+Shell source uses quoted `$TASK_STEP_FETCH_OUTPUT`,
+`$TASK_STEP_FETCH_OUTPUT_FILE`, and `$TASK_STEP_FETCH_STATUS` instead. These work
+across intervening steps. Keep keys stable when editing display names. Named
+references in per-step templated fields must refer to earlier steps; validation
+rejects missing keys, duplicates, and forward references after reordering.
+
+`runIf` contains required `step` (the earlier key) and `operator`, optional
+`field` (`output` by default, or `status`), and optional literal string `value`
+(default empty). Output operators are `isEmpty`, `isNotEmpty`, `equals`,
+`notEquals`, `contains`, and `notContains`. Empty checks ignore whitespace;
+other comparisons are exact and case-sensitive. There is no regex, expression
+evaluation, or template expansion in the comparison value. Status permits only
+`equals`/`notEquals` and a value of `succeeded`, `failed`, `skipped`, or
+`cancelled`.
+
+```json
+{"kind":"alert","body":"{{steps.fetch.output}}","runIf":{"step":"fetch","field":"output","operator":"isNotEmpty"}}
+```
+
+False conditions skip only their step, preserving `input`, `previous_output`,
+and `previous_output_file`. Skips appear explicitly in history. Output checks
+against failed/skipped sources are always false, including negative/empty
+checks; use status to handle these cases. Failed/skipped named results have
+empty output/file values. An alert's named output is its rendered message.
+Failed source steps need `continueOnFailure: true` to reach later handlers, and
+the overall run still fails. Cancellation stops everything, including status
+handlers. Do not invent jump, else, or graph fields: repeat a condition on each
+step in a branch. See [the full example](Examples/conditional-report.cadence.json).
 
 ### shell
 
@@ -168,9 +203,17 @@ Placeholders expand in prompts, alert messages, script paths, script arguments, 
 | `{{previous_output_file}}` | `TASK_PREVIOUS_OUTPUT_FILE` | Run-folder file containing the previous captured result; initially empty. |
 | None | `TASK_ID` | Stable task UUID. |
 
-Shell/script results are stdout; LLM results are captured response text. Alerts preserve the preceding result. A failed step allowed to continue clears previous_output and previous_output_file. There is no named-step lookup or `{{steps.…}}` syntax: only the current previous result and most recent input are available. Persist intermediate results to files if later steps need several outputs.
+Shell/script results are stdout; LLM results are captured response text. Alerts and skipped steps preserve the preceding result. A failed step allowed to continue clears previous_output and previous_output_file. Use named references to reuse other earlier results; their output_file is Cadence's canonical run-folder file, not the optional outputPath destination.
 
 Prompts and substitutions receive up to the last 1 MB of process output; `TASK_PREVIOUS_OUTPUT` carries its last 16,000 characters. The previous-output file contains full shell/script stdout or the captured response. For large data, pass the file path and have the next tool read it. Do not assume `outputPath` is the file exposed by `previous_output_file`; Cadence also maintains a canonical result file in the run folder.
+
+Named output conditions inspect the same captured result. Named shell output
+variables are capped at 16,000 UTF-8 bytes each and share a 48,000-byte budget;
+prefer output files for large results. Environment values may reference any
+existing result key; they are reevaluated before each step. Before a named step
+is reached, its output/file are empty and its status is `pending`. Unknown or
+malformed `steps` references are validation errors, unlike unknown ordinary
+placeholders, which remain literal.
 
 Environment keys must match `[A-Za-z_][A-Za-z0-9_]*`; the `TASK_` prefix is reserved. Values are literal strings with placeholder expansion, without shell parsing: do not use `export`, shell quotes, `$HOME`, or command substitutions expecting evaluation. Separate entries with JSON `\n` escapes:
 

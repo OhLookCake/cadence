@@ -332,6 +332,8 @@ struct TaskDetailView: View {
                 }
                 Text("Use variables in arguments, prompts, alerts, and output paths. Inline commands use quoted TASK_ environment variables.")
                     .font(.caption).foregroundStyle(.secondary)
+                Text("Name a step’s result to reuse it later: {{steps.fetch.output}}, {{steps.fetch.output_file}}, or {{steps.fetch.status}}. Shell commands use $TASK_STEP_FETCH_OUTPUT, $TASK_STEP_FETCH_OUTPUT_FILE, and $TASK_STEP_FETCH_STATUS.")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
     }
@@ -421,6 +423,23 @@ struct RunLogView: View {
             HStack { Text(run.taskName).font(.title2.bold()); Spacer(); StatusBadge(title: current.status.rawValue.capitalized, color: statusColor(current.status)); Button("Done") { dismiss() }.keyboardShortcut(.cancelAction) }
             Text("Scheduled: \(run.scheduledAt.formatted(date: .abbreviated, time: .standard))  ·  Started: \(run.startedAt.formatted(date: .abbreviated, time: .standard))").font(.caption).foregroundStyle(.secondary)
             Text(current.message).font(.callout).textSelection(.enabled)
+            if let results = current.stepResults, !results.isEmpty {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 10) {
+                        ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
+                            HStack(alignment: .top, spacing: 10) {
+                                Text("\(index + 1)").font(.caption.monospaced()).foregroundStyle(.secondary).frame(width: 20)
+                                VStack(alignment: .leading, spacing: 3) {
+                                    Text(result.name).font(.callout.weight(.medium))
+                                    if !result.message.isEmpty { Text(result.message).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
+                                }
+                                Spacer()
+                                StatusBadge(title: result.status.rawValue.capitalized, color: statusColor(RunStatus(rawValue: result.status.rawValue) ?? .skipped))
+                            }
+                        }
+                    }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
+                }.frame(maxHeight: 180).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
+            }
             ScrollView([.horizontal, .vertical]) { Text(model.store.log(run.id)).font(.system(size: 11, design: .monospaced)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .topLeading).padding(16) }.background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
             HStack { Text("Full stdout and stderr are saved separately for each step.").font(.caption).foregroundStyle(.secondary); Spacer(); Button("Open Run Folder") { NSWorkspace.shared.open(model.store.runDirectory(run.id)) } }
         }.padding(24).frame(width: 850, height: 600)

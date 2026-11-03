@@ -80,8 +80,9 @@ public struct FlowConfig: Codable {
             try check(object["schedule"], allowed: ["kind", "hour", "minute", "weekdays", "every", "anchor", "timeZone"], location: "schedule")
             if let steps = object["steps"] as? [Any] {
                 for (index, step) in steps.enumerated() {
-                    try check(step, allowed: ["id", "name", "kind", "body", "executable", "scriptPath", "arguments", "model", "endpoint", "sandbox", "outputPath", "timeoutSeconds", "continueOnFailure"], location: "step \(index + 1)")
+                    try check(step, allowed: ["id", "name", "kind", "body", "executable", "scriptPath", "arguments", "model", "endpoint", "sandbox", "outputPath", "timeoutSeconds", "continueOnFailure", "key", "runIf"], location: "step \(index + 1)")
                     if let fields = step as? [String: Any] {
+                        try check(fields["runIf"], allowed: ["step", "field", "operator", "value"], location: "step \(index + 1) runIf")
                         let field = fields["kind"] as? String == "script" ? "scriptPath" : "body"
                         if fields[field] == nil { throw CadenceError.message("Missing \(field) in step \(index + 1).") }
                     }
@@ -106,7 +107,7 @@ public struct FlowConfig: Codable {
         var config = FlowConfig(task: task); config.schema = schema
         let data = try encoder.encode(config)
         var object = try JSONSerialization.jsonObject(with: data) as! [String: Any]
-        let common: Set<String> = ["id", "name", "kind", "timeoutSeconds", "continueOnFailure", "outputPath"]
+        let common: Set<String> = ["id", "name", "kind", "timeoutSeconds", "continueOnFailure", "outputPath", "key", "runIf"]
         object["steps"] = (object["steps"] as! [[String: Any]]).enumerated().map { index, fields in
             let specific: Set<String>
             switch task.steps[index].kind {
@@ -116,6 +117,7 @@ public struct FlowConfig: Codable {
             case .localLLM: specific = ["body", "endpoint", "model"]
             }
             var result = fields.filter { common.union(specific).contains($0.key) }
+            if task.steps[index].key.isEmpty { result.removeValue(forKey: "key") }
             if task.steps[index].kind == .question { result["kind"] = "userInput" }
             if task.steps[index].kind == .response { result["kind"] = "alert" }
             if task.steps[index].kind == .script {

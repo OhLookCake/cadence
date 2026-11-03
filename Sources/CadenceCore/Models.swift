@@ -128,9 +128,11 @@ public struct TaskStep: Codable, Identifiable, Equatable {
     public var outputPath = ""
     public var timeoutSeconds = 600
     public var continueOnFailure = false
+    public var key = ""
+    public var runIf: StepCondition?
     public init() {}
     enum CodingKeys: String, CodingKey {
-        case id, name, kind, body, executable, scriptPath, arguments, model, endpoint, sandbox, outputPath, timeoutSeconds, continueOnFailure
+        case id, name, kind, body, executable, scriptPath, arguments, model, endpoint, sandbox, outputPath, timeoutSeconds, continueOnFailure, key, runIf
     }
     public init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -152,6 +154,8 @@ public struct TaskStep: Codable, Identifiable, Equatable {
         outputPath = try c.decodeIfPresent(String.self, forKey: .outputPath) ?? outputPath
         timeoutSeconds = try c.decodeIfPresent(Int.self, forKey: .timeoutSeconds) ?? timeoutSeconds
         continueOnFailure = try c.decodeIfPresent(Bool.self, forKey: .continueOnFailure) ?? continueOnFailure
+        key = try c.decodeIfPresent(String.self, forKey: .key) ?? ""
+        runIf = try c.decodeIfPresent(StepCondition.self, forKey: .runIf)
         if kind == .script && !c.contains(.scriptPath) {
             // Preserve the exact invocation of older executable steps.
             scriptPath = executable; executable = ""
@@ -225,6 +229,7 @@ public struct ScheduledTask: Codable, Identifiable, Equatable {
         try require(!name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, "Give the task a name.")
         try require(!steps.isEmpty, "Add at least one step.")
         try require(Set(steps.map(\.id)).count == steps.count, "Each step needs a unique id.")
+        try WorkflowReferences.validate(self)
         try require(TimeZone(identifier: schedule.timeZone) != nil, "Choose a valid time zone identifier.")
         try require((0...23).contains(schedule.hour) && (0...59).contains(schedule.minute), "Choose a valid time.")
         try require((1...10000).contains(schedule.every), "The repeat interval must be between 1 and 10,000.")
@@ -268,6 +273,7 @@ public struct RunRecord: Codable, Identifiable {
     public var message = ""
     public var manual = false
     public var pid: Int32 = 0
+    public var stepResults: [StepRunRecord]?
     public init(task: ScheduledTask, scheduledAt: Date, manual: Bool) {
         taskID = task.id; taskName = task.name; self.scheduledAt = scheduledAt; self.manual = manual
     }

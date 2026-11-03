@@ -1,0 +1,37 @@
+{
+  "version": 1,
+  "name": "Conditional report example",
+  "description": "Set REPORT_TEXT to empty to exercise the other branch. Writes only to the chosen working directory.",
+  "enabled": false,
+  "workingDirectory": "~",
+  "environment": "REPORT_TEXT=Three new items to review",
+  "schedule": {"kind": "daily", "hour": 9, "minute": 0, "timeZone": "Europe/London"},
+  "steps": [
+    {
+      "name": "Fetch changes",
+      "key": "fetch",
+      "kind": "shell",
+      "body": "printf '%s' \"$REPORT_TEXT\""
+    },
+    {
+      "name": "Build report when there are changes",
+      "key": "report",
+      "kind": "shell",
+      "runIf": {"step": "fetch", "field": "output", "operator": "isNotEmpty"},
+      "body": "printf 'Report: %s\\n' \"$TASK_STEP_FETCH_OUTPUT\""
+    },
+    {
+      "name": "Record an empty result",
+      "key": "no_changes",
+      "kind": "shell",
+      "runIf": {"step": "fetch", "field": "output", "operator": "isEmpty"},
+      "body": "printf 'No changes today\\n'"
+    },
+    {
+      "name": "Show the completed report",
+      "kind": "alert",
+      "runIf": {"step": "report", "field": "status", "operator": "equals", "value": "succeeded"},
+      "body": "Original changes:\n{{steps.fetch.output}}\n\n{{steps.report.output}}"
+    }
+  ]
+}
