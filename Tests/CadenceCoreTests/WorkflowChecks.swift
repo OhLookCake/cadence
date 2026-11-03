@@ -107,6 +107,41 @@ extension CadenceCoreTests {
 }
 
 extension CadenceCoreTests {
+    func testSaveFileStepContentReferencesAndLargeOutput() throws {
+        let store = try temporaryStore(); var task = ScheduledTask(); task.workingDirectory = store.root.path
+        var source = TaskStep.make(.shell); source.body = "printf start; /usr/bin/yes data | /usr/bin/head -c 1200000"; source.key = "report"
+        var save = TaskStep.make(.saveFile); save.outputPath = "report-{{scheduled_date}}.txt"; save.key = "saved"
+        var intervening = TaskStep.make(.shell); intervening.body = "printf other"
+        var namedSave = TaskStep.make(.saveFile); namedSave.body = "{{steps.report.output}}"; namedSave.outputPath = "named.txt"
+        var customSave = TaskStep.make(.saveFile); customSave.body = "Report: {{steps.saved.status}}\n{{steps.report.status}}"; customSave.outputPath = "custom.txt"
+        customSave.runIf = StepCondition(step: "report", field: .status, operation: .equals, value: "succeeded")
+        task.steps = [source, save, intervening, namedSave, customSave]
+        try task.validate(); try store.save(task)
+        // A save replaces an existing destination rather than appending.
+        try Data("old".utf8).write(to: store.root.appendingPathComponent("named.txt"))
+        try TaskRunner.run(store: store, id: task.id, manual: true)
+        let run = try store.runs().first!
+        XCTAssertEqual(run.status, .succeeded)
+        let original = try Data(contentsOf: store.runDirectory(run.id).appendingPathComponent("step-1.output.txt"))
+        let date = StepContext(now: run.startedAt, scheduled: run.scheduledAt, timeZone: task.schedule.calendar.timeZone).expand("{{scheduled_date}}")
+        XCTAssertEqual(try Data(contentsOf: store.root.appendingPathComponent("report-\(date).txt")), original)
+        XCTAssertEqual(try Data(contentsOf: store.root.appendingPathComponent("named.txt")), original)
+        XCTAssertEqual(try String(contentsOf: store.root.appendingPathComponent("custom.txt")), "Report: succeeded\nsucceeded")
+    }
+    func testSaveFileValidationAndFailure() throws {
+        let store = try temporaryStore(); var task = ScheduledTask(); task.workingDirectory = store.root.path
+        var save = TaskStep.make(.saveFile); save.outputPath = " "
+        task.steps = [save]; XCTAssertThrowsError(try task.validate())
+        let missingPath = Data(#"{"name":"Missing path","schedule":{"kind":"daily"},"steps":[{"kind":"saveFile","body":"text"}]}"#.utf8)
+        XCTAssertThrowsError(try FlowConfig.decode(missingPath))
+        save.outputPath = "missing-folder/result.txt"; save.body = "literal $(touch unexpected) {{input}}"
+        var after = TaskStep.make(.shell); after.body = "touch after"
+        task.steps = [save, after]; try store.save(task)
+        try TaskRunner.run(store: store, id: task.id, manual: true)
+        XCTAssertEqual(try store.runs().first?.status, .failed)
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.root.appendingPathComponent("after").path))
+        XCTAssertFalse(FileManager.default.fileExists(atPath: store.root.appendingPathComponent("unexpected").path))
+    }
     func testWorkflowReorder() {
         let original = [TaskStep.make(.question), TaskStep.make(.shell), TaskStep.make(.response)]
         var steps = original

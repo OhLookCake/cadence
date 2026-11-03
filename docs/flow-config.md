@@ -77,7 +77,7 @@ An anchor is required for everyDays, interval, and once, for example **2026-11-0
 
 ## Steps
 
-Common optional fields: **id**, **name**, **key**, **runIf**, **timeoutSeconds**, **continueOnFailure**, **outputPath**. Timeouts range from 1 to 86,400 seconds. Output files are replaced atomically; their parent folders must exist.
+Common optional fields: **id**, **name**, **key**, **runIf**, **timeoutSeconds**, **continueOnFailure**. Timeouts range from 1 to 86,400 seconds. Use a **saveFile** step to write output. Legacy outputPath fields on other kinds remain readable and executable for compatibility.
 
 | Kind | Fields |
 | --- | --- |
@@ -87,6 +87,13 @@ Common optional fields: **id**, **name**, **key**, **runIf**, **timeoutSeconds**
 | localLLM | Required body prompt and installed model; optional endpoint |
 | userInput | Required body prompt; default timeout 300 seconds |
 | alert | Required body message; default timeout 120 seconds |
+| saveFile | Required body content and outputPath destination |
+
+`saveFile` expands its body as text and writes it to outputPath, relative to workingDirectory (or an absolute / `~/` path). It atomically replaces an existing file; the parent folder must exist. Its result is the saved content. When body is exactly `{{previous_output}}` or `{{steps.report.output}}`, it saves that result's full canonical file rather than its in-memory tail.
+
+~~~json
+{"kind": "saveFile", "body": "{{previous_output}}", "outputPath": "report-{{scheduled_date}}.txt"}
+~~~
 
 The older question and response kind names remain readable; new files use userInput and alert. Script arguments also accept the older newline-separated string format. The script path is passed automatically:
 

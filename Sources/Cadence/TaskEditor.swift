@@ -315,7 +315,6 @@ struct StepFields: View {
             if step.kind == .question {
                 Text("Cancel or timeout stops the remaining workflow, even if continue on failure is enabled.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
-            EditorField(title: "Save output to file (optional)", text: $step.outputPath, monospaced: true)
         }
     }
     var referenceMenu: some View {
@@ -380,6 +379,11 @@ struct StepFields: View {
             Text("Message").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             CodeField(text: $step.body, height: 85, label: "Response message")
             Text("Use {{previous_output}} to show the preceding result, or write a message with variables. Showing a response preserves the previous output for the next step. Displays up to 6,000 characters.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        case .saveFile:
+            EditorField(title: "Destination file", text: $step.outputPath, monospaced: true)
+            Text("Content").font(.caption).foregroundStyle(.secondary)
+            CodeField(text: $step.body, label: "File content")
+            Text("Use {{previous_output}} to save the preceding result, or enter text with result references. Relative paths use the working directory. Replaces the file; the destination folder must already exist.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
     func chooseFile(script: Bool) {

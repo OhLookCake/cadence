@@ -63,7 +63,7 @@
               }
             }]
           },
-          "kind": {"enum": ["shell", "script", "codex", "localLLM", "userInput", "alert", "question", "response"]},
+          "kind": {"enum": ["shell", "script", "codex", "localLLM", "userInput", "alert", "question", "response", "saveFile"]},
           "body": {"type": "string", "minLength": 1},
           "scriptPath": {"type": "string", "minLength": 1},
           "executable": {"type": "string"},
@@ -77,7 +77,8 @@
         },
         "allOf": [
           {"if": {"properties": {"kind": {"const": "script"}}}, "then": {"required": ["scriptPath"]}, "else": {"required": ["body"]}},
-          {"if": {"properties": {"kind": {"const": "localLLM"}}}, "then": {"required": ["model"]}}
+          {"if": {"properties": {"kind": {"const": "localLLM"}}}, "then": {"required": ["model"]}},
+          {"if": {"properties": {"kind": {"const": "saveFile"}}}, "then": {"required": ["outputPath"], "properties": {"outputPath": {"minLength": 1}}}}
         ]
       }
     }

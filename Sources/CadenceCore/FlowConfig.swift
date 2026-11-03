@@ -85,6 +85,9 @@ public struct FlowConfig: Codable {
                         try check(fields["runIf"], allowed: ["step", "field", "operator", "value"], location: "step \(index + 1) runIf")
                         let field = fields["kind"] as? String == "script" ? "scriptPath" : "body"
                         if fields[field] == nil { throw CadenceError.message("Missing \(field) in step \(index + 1).") }
+                        if fields["kind"] as? String == "saveFile", fields["outputPath"] == nil {
+                            throw CadenceError.message("Missing outputPath in Save to file step \(index + 1).")
+                        }
                     }
                 }
             }
@@ -115,6 +118,7 @@ public struct FlowConfig: Codable {
             case .script: specific = ["scriptPath", "executable", "arguments"]
             case .codex: specific = ["body", "executable", "model", "sandbox"]
             case .localLLM: specific = ["body", "endpoint", "model"]
+            case .saveFile: specific = ["body", "outputPath"]
             }
             var result = fields.filter { common.union(specific).contains($0.key) }
             if task.steps[index].key.isEmpty { result.removeValue(forKey: "key") }

@@ -197,6 +197,7 @@ public final class StepExecutor {
             (code, output) = try process(executable: step.executable.isEmpty ? path : step.executable, arguments: (step.executable.isEmpty ? [] : [path]) + args, environment: env, timeout: step.timeoutSeconds, stem: stem)
         case .question: output = try ask(step, index: index, context: context)
         case .response: output = try showResponse(step, index: index, context: context)
+        case .saveFile: output = context.expand(step.body)
         case .codex:
             let answer = store.runDirectory(run.id).appendingPathComponent("\(stem).answer.txt")
             var args = ["exec", "--skip-git-repo-check", "--color", "never", "--sandbox", step.sandbox, "--output-last-message", answer.path]
@@ -231,13 +232,29 @@ public final class StepExecutor {
         }
         guard code == 0 else { throw CadenceError.message("Step \(index + 1) exited with status \(code). See its output in the run folder.") }
         let canonicalOutput = store.runDirectory(run.id).appendingPathComponent("\(stem).output.txt")
-        if step.kind == .shell || step.kind == .script {
+        // A whole-result save copies the canonical file, including output beyond the in-memory tail.
+        var savedSource: String?
+        if step.kind == .saveFile {
+            if step.body == "{{previous_output}}" { savedSource = context.previousFile }
+            else if step.body.hasPrefix("{{steps."), step.body.hasSuffix(".output}}") {
+                let key = String(step.body.dropFirst(8).dropLast(9))
+                if WorkflowReferences.validKey(key) { savedSource = context.results[key]?.outputFile }
+            }
+        }
+        if let savedSource, !savedSource.isEmpty {
+            try FileManager.default.copyItem(at: URL(fileURLWithPath: savedSource), to: canonicalOutput)
+        } else if step.kind == .shell || step.kind == .script {
             try FileManager.default.copyItem(at: store.runDirectory(run.id).appendingPathComponent("\(stem).stdout"), to: canonicalOutput)
         } else { try Data(output.utf8).write(to: canonicalOutput, options: .atomic) }
         if !step.outputPath.isEmpty {
             let path = (context.expand(step.outputPath) as NSString).expandingTildeInPath
             let url = path.hasPrefix("/") ? URL(fileURLWithPath: path) : URL(fileURLWithPath: (task.workingDirectory as NSString).expandingTildeInPath).appendingPathComponent(path)
-            try Data(output.utf8).write(to: url, options: .atomic)
+            if step.kind == .saveFile {
+                try Data(contentsOf: canonicalOutput, options: .mappedIfSafe).write(to: url, options: .atomic)
+            } else {
+                // Compatibility with configs created before Save to file became a step type.
+                try Data(output.utf8).write(to: url, options: .atomic)
+            }
             append("Saved output to \(url.path)\n")
         }
         return output

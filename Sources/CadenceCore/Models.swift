@@ -97,7 +97,7 @@ public enum MissedPolicy: String, Codable, CaseIterable, Identifiable {
     }
 }
 public enum StepKind: String, Codable, CaseIterable, Identifiable {
-    case shell, script, codex, localLLM, question, response
+    case shell, script, codex, localLLM, question, response, saveFile
     public init(from decoder: Decoder) throws {
         let c = try decoder.singleValueContainer(); let value = try c.decode(String.self)
         if value == "userInput" { self = .question }
@@ -108,10 +108,10 @@ public enum StepKind: String, Codable, CaseIterable, Identifiable {
     public func encode(to encoder: Encoder) throws { var c = encoder.singleValueContainer(); try c.encode(rawValue) }
     public var id: String { rawValue }
     public var title: String {
-        switch self { case .shell: return "Inline command"; case .script: return "Script file / executable"; case .codex: return "Codex CLI"; case .localLLM: return "Local LLM (HTTP)"; case .question: return "User input"; case .response: return "Show alert" }
+        switch self { case .shell: return "Inline command"; case .script: return "Script file / executable"; case .codex: return "Codex CLI"; case .localLLM: return "Local LLM (HTTP)"; case .question: return "User input"; case .response: return "Show alert"; case .saveFile: return "Save to file" }
     }
     public var symbol: String {
-        switch self { case .shell: return "terminal"; case .script: return "doc.text"; case .codex: return "sparkles"; case .localLLM: return "cpu"; case .question: return "bubble.left.and.text.bubble.right"; case .response: return "text.bubble" }
+        switch self { case .shell: return "terminal"; case .script: return "doc.text"; case .codex: return "sparkles"; case .localLLM: return "cpu"; case .question: return "bubble.left.and.text.bubble.right"; case .response: return "text.bubble"; case .saveFile: return "square.and.arrow.down" }
     }
 }
 public struct TaskStep: Codable, Identifiable, Equatable {
@@ -172,6 +172,7 @@ public struct TaskStep: Codable, Identifiable, Equatable {
         case .localLLM: step.body = "Summarize this:\n{{previous_output}}"
         case .question: step.body = "What would you like to provide?"; step.timeoutSeconds = 300
         case .response: step.body = "{{previous_output}}"; step.timeoutSeconds = 120
+        case .saveFile: step.body = "{{previous_output}}"; step.outputPath = "output.txt"
         }
         return step
     }
@@ -246,6 +247,7 @@ public struct ScheduledTask: Codable, Identifiable, Equatable {
             try require((1...86400).contains(step.timeoutSeconds), "Step timeout must be 1–86,400 seconds.")
             if step.kind != .script { try require(!step.body.isEmpty, "A command, prompt, or message is empty.") }
             if step.kind == .script { try require(!step.scriptPath.isEmpty, "Choose a script file or executable.") }
+            if step.kind == .saveFile { try require(!step.outputPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, "Choose a destination for the Save to file step.") }
             if step.kind == .codex { try require(!step.executable.isEmpty, "Specify the Codex executable.") }
             if step.kind == .codex { try require(["read-only", "workspace-write"].contains(step.sandbox), "Codex sandbox must be read-only or workspace-write.") }
             if step.kind == .localLLM {

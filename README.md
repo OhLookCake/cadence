@@ -39,8 +39,9 @@ Calendar schedules use the task’s explicit time zone. Choose from the time-zon
 - **Local LLM:** an HTTP chat-completions endpoint, defaulting to `http://localhost:11434/v1/chat/completions`. Works with servers that implement `choices[0].message.content`, including compatible Ollama and LM Studio configurations. Set the installed model name explicitly. Optional bearer authentication uses `CADENCE_LLM_API_KEY` from the task’s environment.
 - **User input:** displays a text-entry dialog at that point in the sequence. Its answer becomes both `{{input}}` and `{{previous_output}}` for following steps. Multiple questions are supported; `{{input}}` contains the most recent answer. Cancel or timeout stops remaining steps even when continue on failure is enabled. Earlier completed steps are retained.
 - **Show alert:** displays literal text with variables, defaulting to `{{previous_output}}`. It preserves the previous output for later steps. Each response has its own dismissal timeout. The dialog displays the last 6,000 characters; the step’s captured output remains in the run folder.
+- **Save to file:** choose a destination and content, defaulting to `{{previous_output}}`. A whole previous or named output reference saves the full captured file, including large process results. Custom text supports the same variables as prompts. Relative paths use the working directory; the destination folder must exist. Existing files are replaced atomically.
 
-Questions and responses use the same add, edit, reorder, remove, output-file, and per-step execution controls as other steps. Existing task-level question/result settings automatically load as a question at the beginning and a response at the end. Saved definitions use only workflow steps. A failure stops later steps unless that failed step is configured to continue.
+Questions, responses, and file saves use the same add, edit, reorder, remove, and per-step execution controls as other steps. Existing task-level question/result settings automatically load as a question at the beginning and a response at the end. Saved definitions use only workflow steps. A failure stops later steps unless that failed step is configured to continue.
 
 ### Conditions and earlier results
 
@@ -60,7 +61,7 @@ Template references and conditions must target earlier steps. Save rejects missi
 
 Output comparisons and template references use the captured result (up to the last 1 MB for process output). Named shell output variables contain at most the last 16,000 UTF-8 bytes each and share a 48,000-byte budget; use their full output files for larger data. Shared environment values may use named references and are expanded afresh before each step. Unreached results have empty output/file and status `pending`.
 
-Each step has a timeout, optional output path, and a continue-after-failure switch. Any failed step makes the final run status failed, even if later steps continue successfully. Output paths replace existing files atomically; parent directories must exist. Different tasks run concurrently; a single task never overlaps with itself, including manual runs. **Stop** requests cancellation, terminating the active process and its ordinary descendants. Detached processes that intentionally reparent themselves are outside this guarantee.
+Each step has a timeout and a continue-after-failure switch. Add a **Save to file** step wherever a result should be written to disk. Legacy per-step output paths still execute for compatibility. Any failed step makes the final run status failed, even if later steps continue successfully. Different tasks run concurrently; a single task never overlaps with itself, including manual runs. **Stop** requests cancellation, terminating the active process and its ordinary descendants. Detached processes that intentionally reparent themselves are outside this guarantee.
 
 ### Parameters
 

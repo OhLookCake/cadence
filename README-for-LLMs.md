@@ -92,7 +92,7 @@ Every step should specify `kind`. All kinds except `script` require a nonempty `
 | `runIf` | object | Optional condition on an earlier named result; see below. Omitted means unconditional. |
 | `timeoutSeconds` | integer | `1`–`86400`; default `600`, except userInput=`300`, alert=`120`. |
 | `continueOnFailure` | boolean | Default `false`. If true, later steps may run after failure, but the overall run still fails. |
-| `outputPath` | string | Default `""` (no extra output file). Relative to workingDirectory; supports `~` and placeholders. Replaces the destination atomically; its parent directory must already exist. |
+| `outputPath` | string | Required for `saveFile`. Relative to workingDirectory; supports `~` and placeholders. Replaces the destination atomically; its parent directory must already exist. Legacy use on other kinds is still accepted; generate a separate `saveFile` step instead. |
 
 ### Conditions and named results
 
@@ -185,6 +185,14 @@ Replace `your-installed-model` with the user's actual model before using this st
 
 ```json
 {"kind": "alert", "body": "{{previous_output}}", "timeoutSeconds": 120}
+```
+
+### saveFile
+
+Requires nonempty `body` content and `outputPath`. Add it after the producing step, using `{{previous_output}}` or an earlier named result. Its result is the saved content. Whole output references save the full canonical file, including large process output; custom text expands the usual placeholders. The parent directory must exist. Relative paths resolve against workingDirectory; existing files are replaced atomically.
+
+```json
+{"kind": "saveFile", "name": "Save report", "body": "{{previous_output}}", "outputPath": "report-{{scheduled_date}}.txt"}
 ```
 
 ## Runtime values and environment

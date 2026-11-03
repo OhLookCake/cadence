@@ -24,6 +24,8 @@ class CheckCase {
     func cleanup() { for block in teardown.reversed() { block() }; teardown = [] }
 }
 let checks: [(String, (CadenceCoreTests) -> () throws -> Void)] = [
+    ("Save to file content, references, and full output", CadenceCoreTests.testSaveFileStepContentReferencesAndLargeOutput),
+    ("Save to file validation and failure", CadenceCoreTests.testSaveFileValidationAndFailure),
     ("Conditional config and old history", CadenceCoreTests.testConditionalConfigAndOldHistory),
     ("Conditional reference validation", CadenceCoreTests.testConditionalReferenceValidation),
     ("Every condition operator", CadenceCoreTests.testEveryConditionOperator),
