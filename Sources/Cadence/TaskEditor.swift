@@ -318,12 +318,15 @@ struct StepFields: View {
             })) {
                 ForEach(StepKind.allCases) { kind in Text(kind.title).tag(kind) }
             }
-            EditorField(title: "Result name (optional)", text: $step.key, monospaced: true)
-            Text("Use lowercase letters, digits, and underscores, starting with a letter. Later steps can reuse this result. Keep this name stable when changing the display name.")
-                .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             RunConditionFields(condition: $step.runIf, earlierSteps: earlierSteps)
             if earlierSteps.contains(where: { !$0.key.isEmpty }) { referenceMenu }
             configuration
+            VStack(alignment: .leading, spacing: 7) {
+                EditorField(title: "Result name (optional)", text: $step.key, monospaced: true)
+                    .frame(maxWidth: 320, alignment: .leading)
+                Text("Reuse this result in later steps. Start with a lowercase letter; use letters, digits, and underscores (up to 40 characters).")
+                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }
             Divider()
             DurationField(title: durationTitle, seconds: $step.timeoutSeconds)
             Toggle("Continue to the next step if this one fails", isOn: $step.continueOnFailure).font(.caption)
