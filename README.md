@@ -45,6 +45,8 @@ Model fields offer editable dropdowns: Codex uses the CLI's cached model list, a
 
 Questions, responses, and file saves use the same add, edit, reorder, remove, and per-step execution controls as other steps. Existing task-level question/result settings automatically load as a question at the beginning and a response at the end. Saved definitions use only workflow steps. A failure stops later steps unless that failed step is configured to continue.
 
+Each workflow step has Move up, Move down, and Delete buttons in its header, available even when the step is collapsed. You can also drag the grip to reorder steps.
+
 ### Conditions and earlier results
 
 Give a step an optional **Result name**, such as `fetch` or `summary`, to reuse its output later. This is separate from its display name. Result names start with a lowercase letter and contain lowercase letters, digits, or underscores, up to 40 characters; each must be unique in the task. The **Copy earlier result reference** menu supplies the right syntax for the current step type.

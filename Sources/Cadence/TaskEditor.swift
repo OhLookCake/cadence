@@ -272,14 +272,17 @@ struct WorkflowEditor: View {
                         }
                         if step.runIf != nil { Image(systemName: "line.3.horizontal.decrease.circle").foregroundStyle(Color.cadence).help("This step has a run condition") }
                         Spacer()
-                        Menu {
-                            Button("Move up", systemImage: "arrow.up") { move(step.id, -1) }.disabled(index == 0)
-                            Button("Move down", systemImage: "arrow.down") { move(step.id, 1) }.disabled(index == task.steps.count - 1)
-                            Divider()
-                            Button("Remove step", systemImage: "trash", role: .destructive) { task.steps.removeAll { $0.id == step.id } }
-                        } label: { Image(systemName: "ellipsis").frame(width: 24, height: 24) }
-                            .menuStyle(.borderlessButton).fixedSize().help("Step actions")
-                            .accessibilityLabel("Actions for " + step.name)
+                        HStack(spacing: 4) {
+                            Button { move(step.id, -1) } label: {
+                                Image(systemName: "arrow.up").frame(width: 28, height: 28)
+                            }.disabled(index == 0).help("Move up").accessibilityLabel("Move " + step.name + " up")
+                            Button { move(step.id, 1) } label: {
+                                Image(systemName: "arrow.down").frame(width: 28, height: 28)
+                            }.disabled(index == task.steps.count - 1).help("Move down").accessibilityLabel("Move " + step.name + " down")
+                            Button(role: .destructive) { task.steps.removeAll { $0.id == step.id } } label: {
+                                Image(systemName: "trash").frame(width: 28, height: 28)
+                            }.help("Delete step").accessibilityLabel("Delete " + step.name)
+                        }
                         Button { toggleStep(step.id) } label: {
                             Image(systemName: collapsedSteps.contains(step.id) ? "chevron.right" : "chevron.down")
                         }.help(collapsedSteps.contains(step.id) ? "Expand step" : "Collapse step")
