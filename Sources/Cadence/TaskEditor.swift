@@ -254,7 +254,7 @@ struct WorkflowEditor: View {
                 Label(issue, systemImage: "exclamationmark.triangle")
                     .font(.cadenceCallout).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
             }
-            dropTarget(0) { WorkflowBoundary(title: "Start", symbol: "play.fill") }
+            dropTarget(0, minimumHeight: 4) { Color.clear.frame(height: 4) }
             ForEach($task.steps) { $step in
                 let index = task.steps.firstIndex(where: { $0.id == step.id }) ?? 0
                 VStack(alignment: .leading, spacing: 0) {
@@ -321,8 +321,8 @@ struct WorkflowEditor: View {
         if ids.contains(id) { ids.remove(id) } else { ids.insert(id) }
         collapsedStepIDs = ids.map(\.uuidString).sorted().joined(separator: ",")
     }
-    func dropTarget<Content: View>(_ insertion: Int, @ViewBuilder content: () -> Content) -> some View {
-        content().frame(maxWidth: .infinity, minHeight: 30, alignment: .leading)
+    func dropTarget<Content: View>(_ insertion: Int, minimumHeight: CGFloat = 30, @ViewBuilder content: () -> Content) -> some View {
+        content().frame(maxWidth: .infinity, minHeight: minimumHeight, alignment: .leading)
             .padding(.vertical, 4).contentShape(Rectangle())
             .background(targetedInsertion == insertion ? Color.cadence.opacity(0.15) : .clear, in: RoundedRectangle(cornerRadius: 8))
             .overlay(alignment: .bottom) {
