@@ -7,6 +7,7 @@ import AppKit
     var body: some Scene {
         WindowGroup {
             ContentView().environmentObject(model).font(.cadenceBody)
+                .disclosureGroupStyle(CadenceDisclosureStyle())
                 .frame(minWidth: 1020, minHeight: 720)
                 .tint(Color.cadence)
         }

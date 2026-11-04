@@ -262,15 +262,22 @@ struct WorkflowEditor: View {
                         WorkflowDragHandle(transfer: WorkflowStepTransfer(taskID: task.id, stepID: step.id),
                                            title: "\(index + 1). \(step.name)", enabled: isEnabled)
                             .frame(width: 18, height: 28)
-                        Text(String(format: "%02d", index + 1)).font(.system(size: 14, weight: .semibold, design: .monospaced))
-                            .foregroundStyle(Color.cadence).frame(width: 30, height: 30)
-                            .background(Color.cadence.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
-                        VStack(alignment: .leading, spacing: 4) {
-                            TextField("Step name", text: $step.name).font(.cadenceStepTitle).textFieldStyle(.plain).accessibilityLabel("Step \(index + 1) name")
-                            Label(step.kind.title, systemImage: step.kind.symbol).font(.cadenceCaption).foregroundStyle(.secondary)
-                        }
-                        if step.runIf != nil { Image(systemName: "line.3.horizontal.decrease.circle").foregroundStyle(Color.cadence).help("This step has a run condition") }
-                        Spacer()
+                        Button { toggleStep(step.id) } label: {
+                            HStack(spacing: 10) {
+                                Text(String(format: "%02d", index + 1)).font(.system(size: 14, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(Color.cadence).frame(width: 30, height: 30)
+                                    .background(Color.cadence.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text(step.name).font(.cadenceStepTitle)
+                                    Label(step.kind.title, systemImage: step.kind.symbol).font(.cadenceCaption).foregroundStyle(.secondary)
+                                }
+                                if step.runIf != nil { Image(systemName: "line.3.horizontal.decrease.circle").foregroundStyle(Color.cadence).help("This step has a run condition") }
+                                Spacer(minLength: 0)
+                                Image(systemName: collapsedSteps.contains(step.id) ? "chevron.right" : "chevron.down")
+                            }.frame(maxWidth: .infinity, alignment: .leading).contentShape(Rectangle())
+                        }.buttonStyle(.plain)
+                            .help(collapsedSteps.contains(step.id) ? "Expand step" : "Collapse step")
+                            .accessibilityLabel((collapsedSteps.contains(step.id) ? "Expand " : "Collapse ") + step.name)
                         HStack(spacing: 4) {
                             Button { move(step.id, -1) } label: {
                                 Image(systemName: "arrow.up").frame(width: 28, height: 28)
@@ -282,10 +289,6 @@ struct WorkflowEditor: View {
                                 Image(systemName: "trash").frame(width: 28, height: 28)
                             }.help("Delete step").accessibilityLabel("Delete " + step.name)
                         }
-                        Button { toggleStep(step.id) } label: {
-                            Image(systemName: collapsedSteps.contains(step.id) ? "chevron.right" : "chevron.down")
-                        }.help(collapsedSteps.contains(step.id) ? "Expand step" : "Collapse step")
-                            .accessibilityLabel((collapsedSteps.contains(step.id) ? "Expand " : "Collapse ") + step.name)
                     }.buttonStyle(.borderless).padding(16)
                     if !collapsedSteps.contains(step.id) {
                         Divider()
@@ -371,6 +374,7 @@ struct StepFields: View {
     @State private var codexModels: [String] = []
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
+            EditorField(title: "Step name", text: $step.name)
             EditorPicker(title: "Step type", selection: Binding(get: { step.kind }, set: { kind in
                 let id = step.id, key = step.key; let condition = step.runIf
                 step = TaskStep.make(kind); step.id = id; step.key = key; step.runIf = condition
