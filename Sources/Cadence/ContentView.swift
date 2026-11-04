@@ -182,6 +182,10 @@ struct TaskDetailView: View {
     var dirty: Bool { draft != task }
     var conflict: Bool { dirty && baseTask != task }
     var running: Bool { model.isRunning(task) }
+    var runHelp: String {
+        if dirty { return "Save or revert changes before running this task." }
+        return running ? "This task is already running." : "Run this task now"
+    }
     var taskRuns: [RunRecord] { model.runs.filter { $0.taskID == task.id } }
     var nextOccurrence: Date? { dirty ? draft.schedule.next(after: Date()) : model.nextDue(task) }
     var previews: [Date] {
@@ -256,7 +260,12 @@ struct TaskDetailView: View {
             HStack(spacing: 14) {
                 Button { model.runNow(task) } label: { Label("Run Now", systemImage: "play.fill") }
                     .buttonStyle(.borderedProminent).controlSize(.large).disabled(dirty || running)
-                    .help(dirty ? "Save changes before running" : "Run this task now")
+                    .overlay {
+                        if dirty || running {
+                            DisabledControlHelp(text: runHelp).accessibilityHidden(true)
+                        }
+                    }
+                    .help(runHelp).accessibilityHint(runHelp)
                 if running { Button("Stop", role: .destructive) { model.cancel(task) } }
                 StatusBadge(title: running ? "Running" : (task.enabled ? "Enabled" : "Paused"),
                             color: running ? .orange : (task.enabled ? .cadence : .secondary))
@@ -397,6 +406,12 @@ struct TaskDetailView: View {
             }.padding(.vertical, 6).contentShape(Rectangle())
         }.buttonStyle(.plain)
     }
+}
+// Keep tooltip tracking enabled above a disabled SwiftUI control.
+private struct DisabledControlHelp: NSViewRepresentable {
+    let text: String
+    func makeNSView(context: Context) -> NSView { NSView() }
+    func updateNSView(_ view: NSView, context: Context) { view.toolTip = text }
 }
 func statusColor(_ status: RunStatus) -> Color {
     switch status { case .succeeded: return .cadence; case .running: return .orange; case .failed, .interrupted: return .red; case .cancelled, .skipped: return .secondary }
