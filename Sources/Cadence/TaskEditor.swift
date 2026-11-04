@@ -35,16 +35,29 @@ struct EditorPicker<Selection: Hashable, Options: View>: View {
 struct DurationField: View {
     let title: String
     @Binding var seconds: Int
+    var inline = false
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            Text(title).font(.cadenceFieldLabel).foregroundStyle(.secondary)
-            HStack(spacing: 8) {
-                TextField("", value: $seconds, format: .number.grouping(.never))
-                    .textFieldStyle(.roundedBorder).frame(width: 80)
-                    .labelsHidden().accessibilityLabel(title + " in seconds")
-                Text("seconds").foregroundStyle(.secondary)
+        Group {
+            if inline {
+                HStack(spacing: 8) {
+                    Text(title).font(.cadenceFieldLabel).foregroundStyle(.secondary)
+                    valueField
+                }.fixedSize()
+            } else {
+                VStack(alignment: .leading, spacing: 7) {
+                    Text(title).font(.cadenceFieldLabel).foregroundStyle(.secondary)
+                    valueField
+                }.frame(maxWidth: 260, alignment: .leading)
             }
-        }.font(.system(size: 14)).frame(maxWidth: 260, alignment: .leading)
+        }.font(.cadenceCallout)
+    }
+    var valueField: some View {
+        HStack(spacing: 8) {
+            TextField("", value: $seconds, format: .number.grouping(.never))
+                .textFieldStyle(.roundedBorder).frame(width: 80)
+                .labelsHidden().accessibilityLabel(title + " in seconds")
+            Text("seconds").foregroundStyle(.secondary)
+        }
     }
 }
 struct CodeField: View {
@@ -370,7 +383,6 @@ struct StepFields: View {
     @Binding var step: TaskStep
     var earlierSteps: [TaskStep] = []
     var llmAPIKey = ""
-    @State private var executionExpanded = false
     @State private var codexModels: [String] = []
     var body: some View {
         VStack(alignment: .leading, spacing: 20) {
@@ -395,18 +407,14 @@ struct StepFields: View {
                 RunConditionFields(condition: $step.runIf, earlierSteps: earlierSteps)
             }
             Divider()
-            DisclosureGroup(isExpanded: $executionExpanded) {
-                VStack(alignment: .leading, spacing: 16) {
-                    DurationField(title: durationTitle, seconds: $step.timeoutSeconds)
-                    Toggle("Continue after failure", isOn: $step.continueOnFailure).toggleStyle(.checkbox).font(.cadenceCallout)
-                    if step.kind == .question { hint("Cancelling or timing out always stops the workflow.") }
-                }.padding(.top, 12)
-            } label: {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("Execution settings").font(.system(size: 14, weight: .medium))
-                    Text("\(step.timeoutSeconds) sec · \(step.continueOnFailure ? "Continue after failure" : "Stop on failure")")
-                        .font(.cadenceCaption).foregroundStyle(.secondary)
-                }
+            HStack(spacing: 24) {
+                DurationField(title: durationTitle, seconds: $step.timeoutSeconds, inline: true)
+                Spacer(minLength: 0)
+                Toggle("Continue after failure", isOn: $step.continueOnFailure)
+                    .toggleStyle(.checkbox).font(.cadenceCallout).fixedSize()
+                    .help(step.kind == .question
+                          ? "Cancelling or timing out always stops the workflow."
+                          : "Run later steps after a failure. The overall run still reports failure.")
             }
         }.frame(maxWidth: 720, alignment: .leading)
     }
