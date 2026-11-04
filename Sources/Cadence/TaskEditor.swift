@@ -178,7 +178,6 @@ struct ScheduleFields: View {
                     }
                 }
             }
-            Text("Uses this Mac’s local time, including daylight-saving changes. Checks run each minute.").font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
     func toggleDay(_ day: Int) {
@@ -197,7 +196,6 @@ struct MissedRunFields: View {
             Text(task.missedPolicy.detail).font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             if task.missedPolicy == .all { Stepper("Up to \(task.catchUpLimit) runs per check", value: $task.catchUpLimit, in: 1...100).font(.cadenceCaption) }
             if task.missedPolicy == .skip { DurationField(title: "Grace period", seconds: $task.graceSeconds) }
-            Text("Runs of this task never overlap. Re-enabling a paused task or changing its schedule starts from now.").font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 }
