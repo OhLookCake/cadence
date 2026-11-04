@@ -8,7 +8,7 @@ public final class FileLock {
         guard descriptor >= 0 else { throw CadenceError.message("Cannot open lock: \(url.path)") }
         guard flock(descriptor, LOCK_EX | (nonblocking ? LOCK_NB : 0)) == 0 else {
             close(descriptor)
-            throw CadenceError.message("This task is already running.")
+            throw CadenceError.message("This workflow is already running.")
         }
         // Locks must not leak into child scripts.
         _ = fcntl(descriptor, F_SETFD, FD_CLOEXEC)
@@ -147,7 +147,7 @@ public final class CadenceStore {
             throw CadenceError.message("The config changed on disk while you were editing. Reload from file before saving to avoid overwriting those changes.")
         }
         if catalog.issues.contains(where: { (try? FlowConfig.decode(Data(contentsOf: $0.url)).id) == task.id }) {
-            throw CadenceError.message("This task has an invalid or duplicate config. Fix it before saving.")
+            throw CadenceError.message("This workflow has an invalid or duplicate config. Fix it before saving.")
         }
         let current = catalog.files[task.id]
         let url = try availableConfigURL(for: task, replacing: current)

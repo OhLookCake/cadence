@@ -116,7 +116,7 @@ public struct TaskStep: Codable, Identifiable, Equatable {
     public var id = UUID()
     public var name = "Step"
     public var kind: StepKind = .shell
-    public var body = "printf 'Task completed at %s\\n' \"$TASK_TIMESTAMP\""
+    public var body = "printf 'Workflow completed at %s\\n' \"$TASK_TIMESTAMP\""
     public var executable = "/bin/zsh"
     public var scriptPath = ""
     public var arguments = ""
@@ -177,7 +177,7 @@ public struct TaskStep: Codable, Identifiable, Equatable {
 }
 public struct ScheduledTask: Codable, Identifiable, Equatable {
     public var id = UUID()
-    public var name = "Untitled task"
+    public var name = "Untitled workflow"
     public var notes = ""
     public var enabled = false
     public var schedule = TaskSchedule()
@@ -225,7 +225,7 @@ public struct ScheduledTask: Codable, Identifiable, Equatable {
     }
     public func validate() throws {
         func require(_ condition: Bool, _ message: String) throws { if !condition { throw CadenceError.message(message) } }
-        try require(!name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, "Give the task a name.")
+        try require(!name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty, "Give the workflow a name.")
         try require(!steps.isEmpty, "Add at least one step.")
         try require(Set(steps.map(\.id)).count == steps.count, "Each step needs a unique id.")
         try WorkflowReferences.validate(self)

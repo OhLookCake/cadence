@@ -265,7 +265,7 @@ public enum TaskRunner {
     public static func run(store: CadenceStore, id: UUID, manual: Bool, dialogs: WorkflowDialogs? = nil) throws {
         let lock = try FileLock(url: store.lockURL(id), nonblocking: true)
         defer { withExtendedLifetime(lock) {} }
-        guard let task = try store.tasks().first(where: { $0.id == id }) else { throw CadenceError.message("Task no longer exists.") }
+        guard let task = try store.tasks().first(where: { $0.id == id }) else { throw CadenceError.message("Workflow no longer exists.") }
         guard task.enabled || manual else { return }
         try task.validate()
         try? FileManager.default.removeItem(at: store.cancelURL(id))

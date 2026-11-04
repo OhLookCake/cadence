@@ -336,7 +336,7 @@ struct WorkflowEditor: View {
                     .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(Color.primary.opacity(0.12)).allowsHitTesting(false))
                 if index < task.steps.count - 1 { dropTarget(index + 1) { WorkflowConnector() } }
             }
-            if task.steps.isEmpty { Text("Add a step to define what this task does.").foregroundStyle(.secondary).padding(.vertical, 15) }
+            if task.steps.isEmpty { Text("Add a step to define what this workflow does.").foregroundStyle(.secondary).padding(.vertical, 15) }
             dropTarget(task.steps.count) { WorkflowBoundary(title: "End", symbol: "checkmark") }
             addMenu
             }
@@ -456,7 +456,7 @@ struct StepFields: View {
                 }
             }
         } label: { Label("Copy a previous result", systemImage: "doc.on.doc") }
-        .fixedSize().controlSize(.small).help("Copy a variable for a previous result, then paste it into this input. Its value is filled in when the task runs. Quote variables in shell commands.")
+        .fixedSize().controlSize(.small).help("Copy a variable for a previous result, then paste it into this input. Its value is filled in when the workflow runs. Quote variables in shell commands.")
     }
     var durationTitle: String {
         switch step.kind { case .question: return "Wait for an answer"; case .response: return "Dismiss after"; default: return "Timeout" }

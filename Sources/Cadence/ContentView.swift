@@ -5,11 +5,11 @@ import CadenceCore
 struct ContentView: View {
     @EnvironmentObject var model: AppModel
     @State private var search = ""
-    @State private var filter = "All tasks"
+    @State private var filter = "All workflows"
     var filtered: [ScheduledTask] {
         model.tasks.filter { task in
             (search.isEmpty || task.name.localizedCaseInsensitiveContains(search) || task.notes.localizedCaseInsensitiveContains(search)) &&
-            (filter == "All tasks" || (filter == "Enabled" ? task.enabled : !task.enabled))
+            (filter == "All workflows" || (filter == "Enabled" ? task.enabled : !task.enabled))
         }.sorted { $0.name.localizedStandardCompare($1.name) == .orderedAscending }
     }
     var body: some View {
@@ -22,8 +22,8 @@ struct ContentView: View {
                 Button { model.selection = nil } label: {
                     HStack { Label("Overview", systemImage: "square.grid.2x2"); Spacer(); Text("\(model.tasks.count)").foregroundStyle(.secondary) }.padding(10)
                 }.buttonStyle(.plain).background(model.selection == nil ? Color.cadence.opacity(0.1) : .clear, in: RoundedRectangle(cornerRadius: 8)).padding(.horizontal, 12)
-                HStack { Text("TASKS").font(.system(size: 12, weight: .semibold)).tracking(1.3).foregroundStyle(.secondary); Spacer(); Menu { ForEach(["All tasks", "Enabled", "Paused"], id: \.self) { value in Button(value) { filter = value } } } label: { Image(systemName: "line.3.horizontal.decrease") }.menuStyle(.borderlessButton).fixedSize() }.padding(.horizontal, 20).padding(.top, 28).padding(.bottom, 10)
-                TextField("Find a task", text: $search).textFieldStyle(.roundedBorder).padding(.horizontal, 14).padding(.bottom, 8)
+                HStack { Text("WORKFLOWS").font(.system(size: 12, weight: .semibold)).tracking(1.3).foregroundStyle(.secondary); Spacer(); Menu { ForEach(["All workflows", "Enabled", "Paused"], id: \.self) { value in Button(value) { filter = value } } } label: { Image(systemName: "line.3.horizontal.decrease") }.menuStyle(.borderlessButton).fixedSize() }.padding(.horizontal, 20).padding(.top, 28).padding(.bottom, 10)
+                TextField("Find a workflow", text: $search).textFieldStyle(.roundedBorder).padding(.horizontal, 14).padding(.bottom, 8)
                 List(selection: $model.selection) {
                     ForEach(filtered) { task in
                         HStack(spacing: 10) {
@@ -35,20 +35,20 @@ struct ContentView: View {
                             Spacer(minLength: 0)
                             Circle().fill(model.isRunning(task) ? .orange : (task.enabled ? Color.cadence : Color.secondary.opacity(0.35))).frame(width: 6, height: 6)
                         }.padding(.vertical, 6).tag(task.id)
-                            .contextMenu { Button("Open Task") { model.selection = task.id }; Button("Run Now") { model.runNow(task) }; Button("Duplicate…") { model.duplicate(task) } }
+                            .contextMenu { Button("Open Workflow") { model.selection = task.id }; Button("Run Now") { model.runNow(task) }; Button("Duplicate…") { model.duplicate(task) } }
                     }
                 }.listStyle(.sidebar)
                 VStack(spacing: 8) {
                     Button { model.create() } label: {
-                        Label("New Task", systemImage: "plus").frame(maxWidth: .infinity)
+                        Label("New Workflow", systemImage: "plus").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.borderedProminent)
-                    .help("New Task (⌘N)")
+                    .help("New Workflow (⌘N)")
                     Button { model.importTasks() } label: {
                         Label("Import Config…", systemImage: "square.and.arrow.down").frame(maxWidth: .infinity)
                     }
                     .buttonStyle(.bordered)
-                    .help("Create paused tasks from JSON config files. You can also drop files onto the sidebar.")
+                    .help("Create paused workflows from JSON config files. You can also drop files onto the sidebar.")
                 }
                 .controlSize(.large)
                 .padding(.horizontal, 16)
@@ -76,9 +76,9 @@ struct ContentView: View {
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button { model.importTasks() } label: { Label("Import Config…", systemImage: "square.and.arrow.down") }
-                    .help("Import JSON config files as new paused tasks")
+                    .help("Import JSON config files as new paused workflows")
             }
-            ToolbarItem(placement: .primaryAction) { Button { model.create() } label: { Label("New Task", systemImage: "plus") }.buttonStyle(.borderedProminent).help("New Task (⌘N)") }
+            ToolbarItem(placement: .primaryAction) { Button { model.create() } label: { Label("New Workflow", systemImage: "plus") }.buttonStyle(.borderedProminent).help("New Workflow (⌘N)") }
         }
         .alert("Cadence", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("OK") { model.error = nil } } message: { Text(model.error ?? "") }
     }
@@ -126,7 +126,7 @@ struct DashboardView: View {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 9) {
                         Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()).uppercased()).font(.system(size: 12, weight: .medium)).tracking(1.5).foregroundStyle(.secondary)
-                        Text("Your task workspace").font(.system(size: 34, weight: .semibold, design: .rounded))
+                        Text("Your workflow workspace").font(.system(size: 34, weight: .semibold, design: .rounded))
                     }
                     Spacer()
                     Image(systemName: "clock.badge.checkmark").font(.system(size: 50, weight: .ultraLight)).foregroundStyle(Color.cadence).padding(.trailing, 10)
@@ -140,12 +140,12 @@ struct DashboardView: View {
                     VStack(spacing: 16) {
                         ZStack { Circle().fill(Color.cadence.opacity(0.08)).frame(width: 88, height: 88); Image(systemName: "calendar.badge.plus").font(.system(size: 37, weight: .light)).foregroundStyle(Color.cadence) }
                         Text("A little less to remember.").font(.system(size: 25, weight: .medium, design: .rounded))
-                        Button("Create your first task") { model.create() }.buttonStyle(.borderedProminent).controlSize(.large).padding(.top, 4)
+                        Button("Create your first workflow") { model.create() }.buttonStyle(.borderedProminent).controlSize(.large).padding(.top, 4)
                         Button("Import Config…") { model.importTasks() }.buttonStyle(.bordered).controlSize(.large)
                     }.frame(maxWidth: .infinity).padding(.vertical, 40).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
                 } else {
                     CadenceCard(title: "Coming up", symbol: "calendar") {
-                        if upcoming.isEmpty { Text("No enabled schedules. Enable a task to put it on the calendar.").foregroundStyle(.secondary) }
+                        if upcoming.isEmpty { Text("No enabled schedules. Enable a workflow to put it on the calendar.").foregroundStyle(.secondary) }
                         ForEach(upcoming.prefix(6), id: \.0.id) { task, date in
                             Button { model.selection = task.id } label: {
                                 HStack(spacing: 14) {
@@ -183,8 +183,8 @@ struct TaskDetailView: View {
     var conflict: Bool { dirty && baseTask != task }
     var running: Bool { model.isRunning(task) }
     var runHelp: String {
-        if dirty { return "Save or revert changes before running this task." }
-        return running ? "This task is already running." : "Run this task now"
+        if dirty { return "Save or revert changes before running this workflow." }
+        return running ? "This workflow is already running." : "Run this workflow now"
     }
     var taskRuns: [RunRecord] { model.runs.filter { $0.taskID == task.id } }
     var nextOccurrence: Date? {
@@ -236,7 +236,7 @@ struct TaskDetailView: View {
         .onChange(of: task) { old, new in if draft == old { baseTask = new; draft = new } }
         .sheet(item: $selectedRun) { run in RunLogView(run: run).environmentObject(model).font(.cadenceBody) }
         .confirmationDialog("Delete \(task.name)?", isPresented: $confirmDelete) {
-            Button("Delete Task", role: .destructive) { model.remove(task) }
+            Button("Delete Workflow", role: .destructive) { model.remove(task) }
         } message: { Text("Its config and launchd schedule will be removed. Run history and output files will be retained.") }
     }
 
@@ -244,15 +244,15 @@ struct TaskDetailView: View {
         VStack(alignment: .leading, spacing: 20) {
             VStack(alignment: .leading, spacing: 14) {
                 VStack(alignment: .leading, spacing: 6) {
-                    Text("Task name").font(.cadenceCaption.weight(.medium)).foregroundStyle(.secondary)
-                    TextField("Name this task", text: $draft.name)
+                    Text("Workflow name").font(.cadenceCaption.weight(.medium)).foregroundStyle(.secondary)
+                    TextField("Name this workflow", text: $draft.name)
                         .font(.cadenceTaskTitle).textFieldStyle(.roundedBorder)
-                        .controlSize(.large).accessibilityLabel("Task name")
+                        .controlSize(.large).accessibilityLabel("Workflow name")
                 }
                 VStack(alignment: .leading, spacing: 6) {
                     Text("Description").font(.cadenceCaption.weight(.medium)).foregroundStyle(.secondary)
-                    CodeField(text: $draft.notes, height: 75, label: "Task description", monospaced: false,
-                              placeholder: "Describe what this task does…")
+                    CodeField(text: $draft.notes, height: 75, label: "Workflow description", monospaced: false,
+                              placeholder: "Describe what this workflow does…")
                 }
             }.disabled(running)
             HStack(spacing: 14) {
@@ -279,8 +279,8 @@ struct TaskDetailView: View {
                     Button("Repair Schedule") { model.repair(task) }
                     Button("Show LaunchAgent") { NSWorkspace.shared.selectFile(LaunchAgent.url(task.id).path, inFileViewerRootedAtPath: "") }
                     Divider()
-                    Button("Delete Task…", role: .destructive) { confirmDelete = true }
-                } label: { Image(systemName: "ellipsis").frame(width: 20, height: 20) }.fixedSize().help("Task actions")
+                    Button("Delete Workflow…", role: .destructive) { confirmDelete = true }
+                } label: { Image(systemName: "ellipsis").frame(width: 20, height: 20) }.fixedSize().help("Workflow actions")
             }
         }
     }
@@ -290,7 +290,7 @@ struct TaskDetailView: View {
             WorkflowEditor(task: $draft).disabled(running)
             CadenceCard(title: "Run history", symbol: "clock.arrow.circlepath", storageKey: sectionKey("history"), summary: "\(taskRuns.count) runs") {
                 if taskRuns.isEmpty {
-                    Label("No runs yet. Enable its schedule or run this task now.", systemImage: "clock")
+                    Label("No runs yet. Enable its schedule or run this workflow now.", systemImage: "clock")
                         .font(.cadenceCallout).foregroundStyle(.secondary).padding(.vertical, 12)
                 }
                 ForEach(Array(taskRuns.prefix(showAllRuns ? 250 : 5))) { run in

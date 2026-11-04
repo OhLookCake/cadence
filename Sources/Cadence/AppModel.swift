@@ -67,7 +67,7 @@ import CadenceCore
         return task.schedule.next(after: task.scheduleActivatedAt.addingTimeInterval(-1))
     }
     func create(_ kind: StepKind = .shell) {
-        var task = ScheduledTask(); task.name = "New task"; task.steps = [TaskStep.make(kind)]
+        var task = ScheduledTask(); task.name = "New workflow"; task.steps = [TaskStep.make(kind)]
         do { try store.save(task); selection = task.id; refresh() }
         catch { self.error = error.localizedDescription }
     }
@@ -75,7 +75,7 @@ import CadenceCore
         var task = edited
         try task.validate()
         if let old = tasks.first(where: { $0.id == task.id }) {
-            if isRunning(old) { throw CadenceError.message("Stop the current run before changing this task.") }
+            if isRunning(old) { throw CadenceError.message("Stop the current run before changing this workflow.") }
             if old.schedule != task.schedule || (!old.enabled && task.enabled) {
                 task.scheduleRevision = UUID(); task.scheduleActivatedAt = Date()
             }
@@ -86,7 +86,7 @@ import CadenceCore
         do { try LaunchAgent.sync(task: task, runner: runner, root: store.root) }
         catch {
             refreshCount = 0; refresh()
-            throw CadenceError.message("Task saved, but launchd registration failed: \(error.localizedDescription) Use Repair schedule in the task menu.")
+            throw CadenceError.message("Workflow saved, but launchd registration failed: \(error.localizedDescription) Use Repair Schedule in the workflow menu.")
         }
         refreshCount = 0; refresh()
     }
@@ -100,7 +100,7 @@ import CadenceCore
     }
     func remove(_ task: ScheduledTask) {
         do {
-            guard !isRunning(task) else { throw CadenceError.message("Stop this task before deleting it.") }
+            guard !isRunning(task) else { throw CadenceError.message("Stop this workflow before deleting it.") }
             let lock = try FileLock(url: store.lockURL(task.id), nonblocking: true)
             defer { withExtendedLifetime(lock) {} }
             try LaunchAgent.remove(task.id); try store.delete(task.id)
@@ -115,8 +115,8 @@ import CadenceCore
     }
     func runNow(_ task: ScheduledTask) {
         do {
-            guard drafts[task.id] == nil else { throw CadenceError.message("Save your changes before running this task.") }
-            guard !isRunning(task) else { throw CadenceError.message("This task is already running.") }
+            guard drafts[task.id] == nil else { throw CadenceError.message("Save your changes before running this workflow.") }
+            guard !isRunning(task) else { throw CadenceError.message("This workflow is already running.") }
             let p = Process(); p.executableURL = runner
             p.arguments = ["--task", task.id.uuidString, "--manual", "--data-dir", store.root.path]
             let errors = store.root.appendingPathComponent("manual-\(task.id).log")
@@ -141,9 +141,9 @@ import CadenceCore
     func importTasks() {
         let panel = NSOpenPanel(); panel.allowedContentTypes = [.json]; panel.allowsMultipleSelection = true
         panel.canChooseDirectories = false
-        panel.title = "Import Task Config"
+        panel.title = "Import Workflow Config"
         panel.prompt = "Import"
-        panel.message = "Choose JSON config files to create new paused tasks."
+        panel.message = "Choose JSON config files to create new paused workflows."
         guard panel.runModal() == .OK else { return }
         importTasks(from: panel.urls)
     }

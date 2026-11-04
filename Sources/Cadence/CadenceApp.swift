@@ -16,10 +16,10 @@ import AppKit
         .windowToolbarStyle(.unifiedCompact)
         .commands {
             CommandGroup(replacing: .newItem) {
-                Button("New Task…") { model.create() }.keyboardShortcut("n")
+                Button("New Workflow…") { model.create() }.keyboardShortcut("n")
                 Button("Import Config…") { model.importTasks() }
             }
-            CommandMenu("Task") {
+            CommandMenu("Workflow") {
                 Button("Run Now") { if let task = model.tasks.first(where: { $0.id == model.selection }) { model.runNow(task) } }.keyboardShortcut("r").disabled(model.selection == nil)
                 Button("Refresh") { model.refresh(force: true) }.keyboardShortcut("r", modifiers: [.command, .shift])
                 Button("Open Data Folder") { NSWorkspace.shared.open(model.store.root) }
@@ -50,7 +50,7 @@ struct PreferencesView: View {
     var body: some View {
         Form {
             Section("Scheduling") {
-                Text("Tasks run through per-user launchd agents while you are logged in. You can close this app; enabled schedules keep running.")
+                Text("Workflows run through per-user launchd agents while you are logged in. You can close this app; enabled schedules keep running.")
                 Text("Checks run each minute and on wake or login. The app does not wake or power on your Mac. Prompts require an interactive desktop.").foregroundStyle(.secondary)
                 LabeledContent("Registered schedules", value: "\(model.agentIDs.count)")
             }
@@ -58,7 +58,7 @@ struct PreferencesView: View {
                 Text(model.store.root.path).font(.cadenceCaption.monospaced()).textSelection(.enabled)
                 Button("Open Data Folder") { NSWorkspace.shared.open(model.store.root) }
                 Button("Import Config…") { model.importTasks() }
-                Text("Definitions, environment values, prompts and output are stored locally. Run history remains after deleting a task.").font(.cadenceCaption).foregroundStyle(.secondary)
+                Text("Definitions, environment values, prompts and output are stored locally. Run history remains after deleting a workflow.").font(.cadenceCaption).foregroundStyle(.secondary)
             }
         }.formStyle(.grouped).padding().frame(width: 540, height: 420)
     }
