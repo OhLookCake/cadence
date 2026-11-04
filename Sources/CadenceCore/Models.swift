@@ -16,9 +16,8 @@ public struct TaskSchedule: Codable, Equatable {
     public var weekdays: [Int] = [2, 3, 4, 5, 6]
     public var every = 2
     public var anchor = Date()
-    public var timeZone = TimeZone.current.identifier
     public init() {}
-    enum CodingKeys: String, CodingKey { case kind, hour, minute, weekdays, every, anchor, timeZone }
+    enum CodingKeys: String, CodingKey { case kind, hour, minute, weekdays, every, anchor }
     public init(from decoder: Decoder) throws {
         self.init()
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -28,14 +27,13 @@ public struct TaskSchedule: Codable, Equatable {
         weekdays = try c.decodeIfPresent([Int].self, forKey: .weekdays) ?? [2, 3, 4, 5, 6]
         every = try c.decodeIfPresent(Int.self, forKey: .every) ?? 2
         anchor = try c.decodeIfPresent(Date.self, forKey: .anchor) ?? Date(timeIntervalSince1970: 0)
-        timeZone = try c.decodeIfPresent(String.self, forKey: .timeZone) ?? TimeZone.current.identifier
         if [.interval, .everyDays, .once].contains(kind) && !c.contains(.anchor) {
             throw CadenceError.message("This schedule requires an anchor timestamp, for example 2026-11-03T09:00:00Z.")
         }
     }
     public var calendar: Calendar {
         var c = Calendar(identifier: .gregorian)
-        c.timeZone = TimeZone(identifier: timeZone) ?? .current
+        c.timeZone = NSTimeZone.default
         return c
     }
     public func formatted(_ date: Date) -> String {
@@ -231,7 +229,6 @@ public struct ScheduledTask: Codable, Identifiable, Equatable {
         try require(!steps.isEmpty, "Add at least one step.")
         try require(Set(steps.map(\.id)).count == steps.count, "Each step needs a unique id.")
         try WorkflowReferences.validate(self)
-        try require(TimeZone(identifier: schedule.timeZone) != nil, "Choose a valid time zone identifier.")
         try require((0...23).contains(schedule.hour) && (0...59).contains(schedule.minute), "Choose a valid time.")
         try require((1...10000).contains(schedule.every), "The repeat interval must be between 1 and 10,000.")
         try require(schedule.kind != .weekly || !schedule.weekdays.isEmpty, "Select at least one weekday.")

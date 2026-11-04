@@ -28,8 +28,7 @@ Choose **Import Config…** in the sidebar, toolbar, or File menu, then select o
   "schedule": {
     "kind": "daily",
     "hour": 9,
-    "minute": 0,
-    "timeZone": "Europe/London"
+    "minute": 0
   },
   "missedPolicy": "latest",
   "steps": [
@@ -65,7 +64,7 @@ If a file changes while the UI has unsaved edits, Cadence keeps the draft and pr
 
 ## Schedules
 
-Each schedule has **kind** and an optional IANA **timeZone** identifier (default: the Mac's current zone). Generated configs include explicit values so they remain stable across launches.
+Each schedule has **kind** and uses the Mac’s local time zone. The legacy **timeZone** field is accepted when reading older configs but ignored and omitted when saving. Calendar schedules follow changes to the machine’s time zone automatically; interval and one-time anchors remain exact timestamps.
 
 | Kind | Fields |
 | --- | --- |

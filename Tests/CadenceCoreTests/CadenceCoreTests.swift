@@ -3,6 +3,11 @@ import CadenceCore
 
 final class CadenceCoreTests: CheckCase {
     func date(_ value: String) -> Date { ISO8601DateFormatter().date(from: value)! }
+    func useLocalTimeZone(_ identifier: String) {
+        let original = NSTimeZone.default
+        NSTimeZone.default = TimeZone(identifier: identifier)!
+        addTeardownBlock { NSTimeZone.default = original }
+    }
     func temporaryStore() throws -> CadenceStore {
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("CadenceTests-\(UUID())")
         addTeardownBlock { try? FileManager.default.removeItem(at: root) }
@@ -38,13 +43,15 @@ final class CadenceCoreTests: CheckCase {
         XCTAssertEqual(plan.omitted, 2_000_000); XCTAssertEqual(plan.dates.count, 1)
     }
     func testThursdayAndEveryTwoDays() {
-        var schedule = TaskSchedule(); schedule.kind = .weekly; schedule.weekdays = [5]; schedule.timeZone = "Europe/London"; schedule.hour = 9
+        useLocalTimeZone("Europe/London")
+        var schedule = TaskSchedule(); schedule.kind = .weekly; schedule.weekdays = [5]; schedule.hour = 9
         XCTAssertEqual(schedule.next(after: date("2026-11-02T10:00:00Z")), date("2026-11-05T09:00:00Z"))
         schedule.kind = .everyDays; schedule.every = 2; schedule.anchor = date("2026-10-23T09:00:00Z")
         XCTAssertEqual(schedule.next(after: date("2026-10-24T12:00:00Z")), date("2026-10-25T09:00:00Z"))
     }
     func testCalendarDayAcrossDSTAndRepeatedHour() {
-        var schedule = TaskSchedule(); schedule.timeZone = "Europe/London"; schedule.hour = 9
+        useLocalTimeZone("Europe/London")
+        var schedule = TaskSchedule(); schedule.hour = 9
         XCTAssertEqual(schedule.next(after: date("2026-10-24T08:00:00Z")), date("2026-10-25T09:00:00Z"))
         schedule.hour = 1; schedule.minute = 30
         let first = schedule.next(after: date("2026-10-24T23:00:00Z"))!
@@ -52,8 +59,19 @@ final class CadenceCoreTests: CheckCase {
         XCTAssertEqual(schedule.next(after: first), date("2026-10-26T01:30:00Z"))
     }
     func testMissingHourMovesForward() {
-        var schedule = TaskSchedule(); schedule.timeZone = "Europe/London"; schedule.hour = 1; schedule.minute = 30
+        useLocalTimeZone("Europe/London")
+        var schedule = TaskSchedule(); schedule.hour = 1; schedule.minute = 30
         XCTAssertEqual(schedule.next(after: date("2026-03-29T00:00:00Z")), date("2026-03-29T01:00:00Z"))
+    }
+    func testSchedulesFollowLocalTimeAndIgnoreLegacyZone() throws {
+        useLocalTimeZone("America/Los_Angeles")
+        let config = try FlowConfig.decode(Data(#"{"name":"Local schedule","schedule":{"kind":"daily","hour":9,"timeZone":"Europe/London"},"steps":[{"kind":"shell","body":"true"}]}"#.utf8))
+        let task = config.task()
+        XCTAssertEqual(task.schedule.next(after: date("2026-11-03T10:00:00Z")), date("2026-11-03T17:00:00Z"))
+        let saved = try JSONSerialization.jsonObject(with: FlowConfig.encode(task)) as! [String: Any]
+        XCTAssertNil((saved["schedule"] as? [String: Any])?["timeZone"])
+        NSTimeZone.default = TimeZone(identifier: "Europe/London")!
+        XCTAssertEqual(task.schedule.next(after: date("2026-11-03T10:00:00Z")), date("2026-11-04T09:00:00Z"))
     }
     func testOneOffFinishes() throws {
         var task = ScheduledTask(); task.schedule.kind = .once; task.schedule.anchor = date("2026-11-01T09:00:00Z")

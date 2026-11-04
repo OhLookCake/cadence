@@ -5,7 +5,7 @@
   "enabled": false,
   "workingDirectory": "~",
   "environment": "REPORT_TEXT=Three new items to review",
-  "schedule": {"kind": "daily", "hour": 9, "minute": 0, "timeZone": "Europe/London"},
+  "schedule": {"kind": "daily", "hour": 9, "minute": 0},
   "steps": [
     {
       "name": "Fetch changes",

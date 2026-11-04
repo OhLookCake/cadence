@@ -29,7 +29,7 @@ Create a task with **⌘N** or a starter button. Its overview is directly editab
 | User input | Ask for input anywhere in the workflow; cancellation or timeout stops remaining steps |
 | Show alert | Display a message or an earlier result anywhere in the workflow |
 
-Calendar schedules use the task’s explicit time zone. Choose from the time-zone list; type a city or region to filter, then click a result or use the arrow keys and Return. Missing DST times move forward; repeated times run once. The editor previews upcoming occurrences. Editing a schedule or re-enabling a task resets scheduling from now. Paused time is not backfilled. Manual runs do not change the schedule cursor.
+Calendar schedules use this Mac’s local time zone, following changes to the machine’s time zone automatically. Missing DST times move forward; repeated times run once. The editor previews upcoming occurrences. Editing a schedule or re-enabling a task resets scheduling from now. Paused time is not backfilled. Manual runs do not change the schedule cursor.
 
 ## Steps
 
@@ -71,7 +71,7 @@ Each step has a timeout and a continue-after-failure switch. Add a **Save to fil
 
 | Placeholder in arguments, prompts, environment values, output paths | Shell environment | Meaning |
 | --- | --- | --- |
-| `{{date}}` | `TASK_DATE` | Actual run date, `YYYY-MM-DD` in the task’s time zone |
+| `{{date}}` | `TASK_DATE` | Actual run date, `YYYY-MM-DD` in the Mac’s local time zone |
 | `{{timestamp}}` | `TASK_TIMESTAMP` | Actual run start, ISO 8601 UTC |
 | `{{unix}}` | `TASK_UNIX` | Unix timestamp in seconds |
 | `{{scheduled_date}}` | `TASK_SCHEDULED_DATE` | Date of the original scheduled occurrence |

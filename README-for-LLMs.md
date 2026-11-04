@@ -9,7 +9,7 @@ The [JSON Schema](docs/flow.schema.json) describes the file structure. [FlowConf
 1. Read the existing config before editing. Preserve the task `id`, existing step IDs, workflow order, enabled state, and settings outside the requested change. Do not replace an existing task with an imported copy: importing assigns a new task identity.
 2. For a new importable config, omit the top-level `id` and use `"enabled": false`. Cadence assigns an ID and always imports tasks paused. Step IDs can be omitted in a new file; when adding steps to an existing managed file, prefer fresh UUIDs for the new steps and preserve all existing IDs.
 3. For a new file placed directly in the managed `flows/` directory, generate a unique top-level UUID. Never put two files with the same task ID there; both are rejected. Files without a task ID cannot load as managed tasks. Use the workflow name with underscores for the filename. Cadence renames managed files to match their name on reload, adding numeric suffixes for collisions; recheck the current path after changing a workflow name.
-4. Use explicit schedule values, especially the time zone, interval, weekdays, and anchor where applicable. Ask for missing information that materially changes the requested behavior, such as an ambiguous time zone or unknown script location. Do not invent installed models, executable paths, credentials, or script contents.
+4. Use explicit schedule values for the interval, weekdays, and anchor where applicable. Schedules use the Mac’s local time zone. Ask for missing information that materially changes the requested behavior, such as an unknown script location. Do not invent installed models, executable paths, credentials, or script contents.
 5. Write complete valid JSON, using only the fields below. Unless asked for a patch or explanation, deliver an actual `.cadence.json` file when filesystem access is available, or one complete JSON object otherwise. Explain dependencies and whether validation was structural or performed by Cadence.
 
 Managed configs live at:
@@ -49,35 +49,35 @@ Do not edit `metadata/`, `state/`, `runs/`, LaunchAgent plists, or the legacy `t
 | Field | Type | Rule / default |
 | --- | --- | --- |
 | `kind` | string | Required: `daily`, `weekly`, `everyDays`, `interval`, or `once`. |
-| `timeZone` | string | Valid IANA identifier, e.g. `Europe/London`, `America/New_York`, or `UTC`. Defaults to the Mac's current zone at load; specify explicitly. |
+| `timeZone` | string | Legacy field: accepted but ignored. Omit it from new configs; all schedules use the Mac’s local time zone. |
 | `hour` | integer | `0`–`23`; default `9`. Used by daily, weekly, and everyDays. |
 | `minute` | integer | `0`–`59`; default `0`. Used by daily, weekly, and everyDays. |
 | `weekdays` | array of integers | Sunday=`1`, Monday=`2`, … Saturday=`7`. Default `[2,3,4,5,6]`. For weekly, supply a nonempty list without duplicates. |
 | `every` | integer | `1`–`10000`; default `2`. Days for everyDays, minutes for interval. Always specify for those kinds. |
 | `anchor` | string | ISO 8601 timestamp with a zone, e.g. `2027-01-04T09:00:00Z`. Required for everyDays, interval, and once. Prefer whole seconds. |
 
-Calendar schedules retain their wall-clock time across daylight saving changes. Missing times move forward; repeated times run once. For `everyDays`, the anchor's **local calendar date in `timeZone`** sets the day cadence, while `hour` and `minute` set the execution time. For `interval`, the anchor is the first timestamp and subsequent occurrences are fixed elapsed intervals. For `once`, the anchor is the exact execution timestamp. Supply a future timestamp for a newly created one-time task; an old anchor does not request an immediate run.
+Calendar schedules use the Mac’s local time zone and retain their wall-clock time across daylight saving changes. Missing times move forward; repeated times run once. For `everyDays`, the anchor's **local calendar date on the Mac** sets the day cadence, while `hour` and `minute` set the execution time. For `interval`, the anchor is the first timestamp and subsequent occurrences are fixed elapsed intervals. For `once`, the anchor is the exact execution timestamp. Supply a future timestamp for a newly created one-time task; an old anchor does not request an immediate run.
 
 These are interchangeable `schedule` objects, not complete task files. The anchor dates are examples; choose dates matching the user's request.
 
 ```json
-{"kind": "daily", "hour": 9, "minute": 0, "timeZone": "Europe/London"}
+{"kind": "daily", "hour": 9, "minute": 0}
 ```
 
 ```json
-{"kind": "weekly", "weekdays": [2, 4, 6], "hour": 18, "minute": 30, "timeZone": "Europe/London"}
+{"kind": "weekly", "weekdays": [2, 4, 6], "hour": 18, "minute": 30}
 ```
 
 ```json
-{"kind": "everyDays", "every": 3, "anchor": "2027-01-04T00:00:00Z", "hour": 9, "minute": 0, "timeZone": "Europe/London"}
+{"kind": "everyDays", "every": 3, "anchor": "2027-01-04T00:00:00Z", "hour": 9, "minute": 0}
 ```
 
 ```json
-{"kind": "interval", "every": 30, "anchor": "2027-01-04T09:00:00Z", "timeZone": "Europe/London"}
+{"kind": "interval", "every": 30, "anchor": "2027-01-04T09:00:00Z"}
 ```
 
 ```json
-{"kind": "once", "anchor": "2027-01-04T09:00:00Z", "timeZone": "Europe/London"}
+{"kind": "once", "anchor": "2027-01-04T09:00:00Z"}
 ```
 
 ## Workflow steps
@@ -201,10 +201,10 @@ Placeholders expand in prompts, alert messages, script paths, script arguments, 
 
 | Placeholder | Shell environment variable | Meaning |
 | --- | --- | --- |
-| `{{date}}` | `TASK_DATE` | Actual run date in the task's time zone, `YYYY-MM-DD`. |
+| `{{date}}` | `TASK_DATE` | Actual run date in the Mac’s local time zone, `YYYY-MM-DD`. |
 | `{{timestamp}}` | `TASK_TIMESTAMP` | Actual run start, ISO 8601 UTC. |
 | `{{unix}}` | `TASK_UNIX` | Actual run start as Unix seconds. |
-| `{{scheduled_date}}` | `TASK_SCHEDULED_DATE` | Original occurrence date in the task's time zone; use for catch-up reports. |
+| `{{scheduled_date}}` | `TASK_SCHEDULED_DATE` | Original occurrence date in the Mac’s local time zone; use for catch-up reports. |
 | `{{scheduled_timestamp}}` | `TASK_SCHEDULED_TIMESTAMP` | Original occurrence timestamp, ISO 8601 UTC. |
 | `{{input}}` | `TASK_INPUT` | Most recent question answer; initially empty. |
 | `{{previous_output}}` | `TASK_PREVIOUS_OUTPUT` | Previous step's captured result; initially empty. Alerts preserve it; continued failures clear it. |
@@ -247,8 +247,7 @@ This example needs no external scripts or models. It starts paused, asks for inp
     "kind": "weekly",
     "weekdays": [2, 3, 4, 5, 6],
     "hour": 9,
-    "minute": 0,
-    "timeZone": "Europe/London"
+    "minute": 0
   },
   "missedPolicy": "latest",
   "catchUpLimit": 5,
@@ -280,7 +279,7 @@ This example needs no external scripts or models. It starts paused, asks for inp
 ## Validate before delivery
 
 - Parse as strict JSON and check against [flow.schema.json](docs/flow.schema.json) when a schema validator is available. Schema checks do not confirm existing directories, installed tools/models, or execution permissions.
-- Check the field tables above, nonempty steps and bodies, UUID uniqueness, numeric bounds, weekday numbering, anchor timestamps, and time zone. Confirm the requested local time matches the anchor's offset where an anchor represents an exact instant.
+- Check the field tables above, nonempty steps and bodies, UUID uniqueness, numeric bounds, weekday numbering, and anchor timestamps. Confirm the requested local time matches the anchor's offset where an anchor represents an exact instant.
 - Confirm workingDirectory exists; check referenced scripts, interpreters, executables, output parents, and local model availability where accessible. State anything unverified. Config acceptance alone does not prove those tools can run.
 - Review shell quoting and JSON escaping. For a newline in a prompt use JSON `\n`; for a literal backslash-n passed to `printf`, use JSON `\\n`. Use scheduled dates for backlog work.
 - For an existing file, review the diff to ensure only requested behavior changed. Write atomically where supported; do not clobber concurrent changes.

@@ -22,7 +22,7 @@
       "required": ["kind"],
       "properties": {
         "kind": {"enum": ["daily", "weekly", "everyDays", "interval", "once"]},
-        "timeZone": {"type": "string", "examples": ["Europe/London", "America/New_York", "UTC"]},
+        "timeZone": {"type": "string", "deprecated": true, "description": "Legacy field, ignored. Schedules use the Mac’s local time zone."},
         "hour": {"type": "integer", "minimum": 0, "maximum": 23, "default": 9},
         "minute": {"type": "integer", "minimum": 0, "maximum": 59, "default": 0},
         "every": {"type": "integer", "minimum": 1, "maximum": 10000},

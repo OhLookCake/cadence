@@ -144,8 +144,7 @@ struct ScheduleFields: View {
             if task.schedule.kind == .everyDays {
                 DatePicker("Starting on", selection: $task.schedule.anchor, displayedComponents: .date).environment(\.timeZone, task.schedule.calendar.timeZone)
             }
-            TimeZonePicker(selection: $task.schedule.timeZone)
-            Text("Calendar times follow this time zone, including daylight-saving changes. Checks run each minute.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text("Uses this Mac’s local time, including daylight-saving changes. Checks run each minute.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
     func toggleDay(_ day: Int) {

@@ -77,6 +77,7 @@ public struct FlowConfig: Codable {
         let raw = try JSONSerialization.jsonObject(with: data)
         try check(raw, allowed: Set(CodingKeys.allNames), location: "flow")
         if let object = raw as? [String: Any] {
+            // Accept the retired timeZone field in older configs; schedules now always use local time.
             try check(object["schedule"], allowed: ["kind", "hour", "minute", "weekdays", "every", "anchor", "timeZone"], location: "schedule")
             if let steps = object["steps"] as? [Any] {
                 for (index, step) in steps.enumerated() {
