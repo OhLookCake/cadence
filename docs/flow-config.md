@@ -6,7 +6,7 @@ Each task is backed by exactly one UTF-8 JSON file:
 ~/Library/Application Support/Cadence/flows/<Workflow_name>.cadence.json
 ~~~
 
-This is the source of truth. UI saves update the file atomically. Config filenames follow the workflow name: **Daily report** becomes **Daily_report.cadence.json**. Whitespace and path separators become underscores. Duplicate names receive numeric suffixes such as **Daily_report_2.cadence.json**. Existing files are renamed on reload, including after external name edits; UI saves rename immediately. Exports suggest the same naming format.
+This is the source of truth. UI saves update the file atomically. Config filenames follow the workflow name: **Daily report** becomes **Daily_report.cadence.json**. Whitespace and path separators become underscores. Duplicate names receive numeric suffixes such as **Daily_report_2.cadence.json**. Existing files are renamed on reload, including after external name edits; UI saves rename immediately.
 
 Keep the **id** unchanged to retain identity, history, and schedule state. Do not keep two files with the same ID in that folder. Invalid and duplicate-ID configs are left in place for repair.
 
@@ -14,7 +14,7 @@ Use **Edit Config File** to open the task's file in TextEdit, or **Show in Finde
 
 ## Create or import
 
-Choose **Import Config…** in the sidebar, toolbar, or File menu, then select one or more JSON files. You can also drag config files from Finder onto the sidebar. Imports get new task IDs and start paused, even if the source says enabled. The source file is copied into the managed folder; subsequent edits should target the managed file shown on the task. If a file is invalid, its filename and error are shown while other valid files still import. **Export Config…** exports one task in the same format.
+Choose **Import Config…** in the sidebar, toolbar, or File menu, then select one or more JSON files. You can also drag config files from Finder onto the sidebar. Imports get new task IDs and start paused, even if the source says enabled. The source file is copied into the managed folder; subsequent edits should target the managed file shown on the task. If a file is invalid, its filename and error are shown while other valid files still import.
 
 [This example](../Examples/Daily_report.cadence.json) can be imported as written. IDs are optional on import. Managed files require a task ID; imports and UI saves supply it. Handwritten steps may omit IDs and get stable identities when loaded.
 

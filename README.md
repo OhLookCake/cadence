@@ -118,9 +118,9 @@ Before side effects, each occurrence is claimed durably. If the runner crashes o
   runs/<run UUID>/         Run metadata, stdout, stderr, inputs, and captured answers
 ```
 
-Definitions are written atomically under a file lock. The data root is private to the user. Environment values, prompts, question answers, and outputs are local plaintext; exported definitions include environment values. Use your scripts and Keychain for secrets when possible. Log retention is manual in this version; there is no automatic history deletion.
+Definitions are written atomically under a file lock. The data root is private to the user. Environment values, prompts, question answers, and outputs are local plaintext. Use your scripts and Keychain for secrets when possible. Log retention is manual in this version; there is no automatic history deletion.
 
-**File → Import Config…** creates paused tasks from individual JSON files. **Export Config…** exports the selected task in the same format. The task’s **Config file** section opens its source file for editing. External edits reload automatically, with protection for unsaved UI changes. See [the format and examples](docs/flow-config.md), or give an LLM agent [README-for-LLMs.md](README-for-LLMs.md) to create or edit task configs. Deleting a task removes its schedule and config while retaining history.
+**File → Import Config…** creates paused tasks from individual JSON files. The task’s **Config file** section opens its source file for editing or reveals it in Finder. External edits reload automatically, with protection for unsaved UI changes. See [the format and examples](docs/flow-config.md), or give an LLM agent [README-for-LLMs.md](README-for-LLMs.md) to create or edit task configs. Deleting a task removes its schedule and config while retaining history.
 
 ## Build & verify
 

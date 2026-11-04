@@ -229,7 +229,7 @@ Environment keys must match `[A-Za-z_][A-Za-z0-9_]*`; the `TASK_` prefix is rese
 {"environment": "REPORT_DATE={{scheduled_date}}\nREPORT_STYLE=concise"}
 ```
 
-The runner supplies PATH `/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin`, which environment entries can override. Shell startup files are not loaded. Configs and exports store environment values in plaintext; use existing script/Keychain arrangements for secrets rather than inventing a secret-reference syntax.
+The runner supplies PATH `/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin`, which environment entries can override. Shell startup files are not loaded. Configs store environment values in plaintext; use existing script/Keychain arrangements for secrets rather than inventing a secret-reference syntax.
 
 ## Complete importable example
 

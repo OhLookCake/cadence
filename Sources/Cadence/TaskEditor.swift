@@ -75,7 +75,7 @@ struct CodeField: View {
     var body: some View {
         VStack(spacing: 0) {
             ZStack(alignment: .topLeading) {
-                TextEditor(text: $text).scrollContentBackground(.hidden).accessibilityLabel(label)
+                CodeTextEditor(text: $text, label: label, monospaced: monospaced)
                 if text.isEmpty && !placeholder.isEmpty {
                     Text(placeholder).foregroundStyle(.tertiary).padding(.horizontal, 5).padding(.top, 8)
                         .allowsHitTesting(false).accessibilityHidden(true)
@@ -117,6 +117,13 @@ struct CodeField: View {
 }
 struct ScheduleFields: View {
     @Binding var task: ScheduledTask
+    var frequency: Binding<ScheduleKind> {
+        Binding(get: { task.schedule.kind }, set: { kind in
+            guard kind != task.schedule.kind else { return }
+            task.schedule.kind = kind
+            if [.once, .interval, .everyDays].contains(kind) { task.schedule.anchor = Date() }
+        })
+    }
     var time: Binding<Date> {
         Binding(get: { task.schedule.calendar.date(from: DateComponents(year: 2026, month: 1, day: 1, hour: task.schedule.hour, minute: task.schedule.minute)) ?? Date() },
                 set: { date in task.schedule.hour = task.schedule.calendar.component(.hour, from: date); task.schedule.minute = task.schedule.calendar.component(.minute, from: date) })
@@ -126,7 +133,7 @@ struct ScheduleFields: View {
             Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 16) {
                 GridRow {
                     Text("Frequency")
-                    Picker("Frequency", selection: $task.schedule.kind) {
+                    Picker("Frequency", selection: frequency) {
                         ForEach(ScheduleKind.allCases) { kind in Text(kind.title).tag(kind) }
                     }.labelsHidden().fixedSize()
                 }
@@ -190,10 +197,9 @@ struct MissedRunFields: View {
     @Binding var task: ScheduledTask
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            EditorPicker(title: "Action", selection: $task.missedPolicy) {
+            Picker("If a run is missed", selection: $task.missedPolicy) {
                 ForEach(MissedPolicy.allCases) { policy in Text(policy.title).tag(policy) }
-            }
-            Text(task.missedPolicy.detail).font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            }.labelsHidden().pickerStyle(.menu).frame(maxWidth: 320, alignment: .leading)
             if task.missedPolicy == .all { Stepper("Runs per batch: \(task.catchUpLimit)", value: $task.catchUpLimit, in: 1...100).font(.cadenceCaption) }
             if task.missedPolicy == .skip { DurationField(title: "Allowed delay", seconds: $task.graceSeconds) }
         }
@@ -242,9 +248,8 @@ struct EnvironmentFields: View {
     @Binding var task: ScheduledTask
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Environment variables · one KEY=value per line").font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text("One KEY=value per line").font(.cadenceCaption).foregroundStyle(.secondary)
             CodeField(text: $task.environment, height: 75, label: "Environment variables")
-            Text("PATH includes Homebrew and system tools. Values are stored in the local task definition.").font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -296,8 +301,8 @@ struct WorkflowEditor: View {
                             .frame(width: 18, height: 28)
                         Button { toggleStep(step.id) } label: {
                             HStack(spacing: 10) {
-                                Text(String(format: "%02d", index + 1)).font(.system(size: 14, weight: .semibold, design: .monospaced))
-                                    .foregroundStyle(Color.cadence).frame(width: 30, height: 30)
+                                Text(String(format: "%02d", index + 1)).font(.system(size: 21, weight: .semibold, design: .monospaced))
+                                    .foregroundStyle(Color.cadence).frame(width: 42, height: 42)
                                     .background(Color.cadence.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
                                 VStack(alignment: .leading, spacing: 4) {
                                     Text(step.name).font(.cadenceStepTitle)
@@ -454,12 +459,12 @@ struct StepFields: View {
         .fixedSize().controlSize(.small).help("Copy a variable for a previous result, then paste it into this input. Its value is filled in when the task runs. Quote variables in shell commands.")
     }
     var durationTitle: String {
-        switch step.kind { case .question: return "Wait for an answer"; case .response: return "Dismiss after"; default: return "Time limit" }
+        switch step.kind { case .question: return "Wait for an answer"; case .response: return "Dismiss after"; default: return "Timeout" }
     }
     func hint(_ text: String) -> some View {
         Text(text).font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
     }
-    func textInput(_ title: String, label: String, height: CGFloat = 140, help: String) -> some View {
+    func textInput(_ title: String, label: String, height: CGFloat = 140, help: String = "") -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
                 Text(title).font(.system(size: 14, weight: .medium))
@@ -467,13 +472,13 @@ struct StepFields: View {
                 if earlierSteps.contains(where: { !$0.key.isEmpty }) { referenceMenu }
             }
             CodeField(text: $step.body, height: height, label: label)
-            hint(help)
+            if !help.isEmpty { hint(help) }
         }
     }
     @ViewBuilder var primaryInput: some View {
         switch step.kind {
         case .shell:
-            textInput("Command · /bin/zsh", label: "Inline shell command", help: "Use quoted variables such as \"$TASK_SCHEDULED_DATE\". Commands run literally in /bin/zsh.")
+            textInput("Command · /bin/zsh", label: "Inline shell command", help: "Use quoted variables such as \"$TASK_SCHEDULED_DATE\".")
         case .script:
             VStack(alignment: .leading, spacing: 14) {
                 fileField("Script file or executable", text: $step.scriptPath, script: true)
@@ -494,7 +499,7 @@ struct StepFields: View {
         case .question:
             textInput("Question", label: "Question text", height: 85, help: "The answer becomes {{input}} and {{previous_output}}, or $TASK_INPUT in commands.")
         case .response:
-            textInput("Message", label: "Response message", height: 85, help: "Displays up to 6,000 characters. The previous output stays available to the next step.")
+            textInput("Message", label: "Response message", height: 85)
         case .saveFile:
             VStack(alignment: .leading, spacing: 14) {
                 HStack(alignment: .bottom, spacing: 10) {
@@ -523,7 +528,7 @@ struct StepFields: View {
             VStack(alignment: .leading, spacing: 14) {
                 Text("Model connection").font(.system(size: 14, weight: .medium))
                 LocalModelConnectionFields(model: $step.model, endpoint: $step.endpoint, apiKey: llmAPIKey)
-                hint("Works with Ollama, LM Studio, and compatible servers. Optional API key: CADENCE_LLM_API_KEY in Environment.")
+                hint("Works with Ollama, LM Studio, and compatible servers. Optional API key: CADENCE_LLM_API_KEY in Environment variables.")
             }
         case .script:
             Divider()
@@ -579,27 +584,25 @@ struct RunConditionFields: View {
             }))
             .toggleStyle(.checkbox).font(.cadenceCallout).disabled(namedSteps.isEmpty && condition == nil)
             if let selected = condition {
-                EditorPicker(title: "Previous result", selection: current.step, width: 440) {
-                    if !namedSteps.contains(where: { $0.key == selected.step }) {
-                        Text(selected.step.isEmpty ? "Choose a previous result" : "Not available from a previous step: \(selected.step)").tag(selected.step)
-                    }
-                    ForEach(namedSteps) { source in Text("\(source.name) · \(source.key)").tag(source.key) }
-                }
-                ViewThatFits(in: .horizontal) {
-                    HStack(alignment: .top, spacing: 16) {
-                        checkField(selected).frame(minWidth: 160)
-                        operatorField(selected).frame(minWidth: 240)
-                    }
-                    VStack(alignment: .leading, spacing: 12) { checkField(selected); operatorField(selected) }
-                }
-                if selected.operation.needsValue {
-                    if selected.field == .status {
-                        EditorPicker(title: "Step status", selection: current.value) {
-                            ForEach(StepResultStatus.conditionValues) { status in Text(status.rawValue.capitalized).tag(status.rawValue) }
+                HStack(alignment: .top, spacing: 16) {
+                    EditorPicker(title: "Previous result", selection: current.step, width: .infinity) {
+                        if !namedSteps.contains(where: { $0.key == selected.step }) {
+                            Text(selected.step.isEmpty ? "Choose a previous result" : "Not available from a previous step: \(selected.step)").tag(selected.step)
                         }
-                    } else {
-                        EditorField(title: "Compare with (case-sensitive text)", text: current.value)
-                            .frame(maxWidth: 440, alignment: .leading)
+                        ForEach(namedSteps) { source in Text("\(source.name) · \(source.key)").tag(source.key) }
+                    }
+                    checkField(selected).frame(width: 180)
+                }
+                HStack(alignment: .top, spacing: 16) {
+                    operatorField(selected).frame(width: 240)
+                    if selected.operation.needsValue {
+                        if selected.field == .status {
+                            EditorPicker(title: "Step status", selection: current.value) {
+                                ForEach(StepResultStatus.conditionValues) { status in Text(status.rawValue.capitalized).tag(status.rawValue) }
+                            }
+                        } else {
+                            EditorField(title: "Compare with (case-sensitive text)", text: current.value)
+                        }
                     }
                 }
                 Text(selected.field == .output

@@ -187,8 +187,12 @@ struct TaskDetailView: View {
         return running ? "This task is already running." : "Run this task now"
     }
     var taskRuns: [RunRecord] { model.runs.filter { $0.taskID == task.id } }
-    var nextOccurrence: Date? { dirty ? draft.schedule.next(after: Date()) : model.nextDue(task) }
+    var nextOccurrence: Date? {
+        guard draft.enabled else { return nil }
+        return dirty ? draft.schedule.next(after: Date()) : model.nextDue(task)
+    }
     var previews: [Date] {
+        guard draft.enabled else { return [] }
         var dates: [Date] = [], cursor = Date()
         for _ in 0..<3 { guard let next = draft.schedule.next(after: cursor) else { break }; dates.append(next); cursor = next }
         return dates
@@ -271,7 +275,6 @@ struct TaskDetailView: View {
                     .help("Enable or disable scheduled runs. Save Changes to apply.")
                 Menu {
                     if let url = model.configFiles[task.id] { Button("Edit Config File…") { model.editConfig(url) } }
-                    Button("Export Config…") { model.exportTasks() }.disabled(dirty)
                     Button("Duplicate") { model.duplicate(task) }.disabled(dirty)
                     Button("Repair Schedule") { model.repair(task) }
                     Button("Show LaunchAgent") { NSWorkspace.shared.selectFile(LaunchAgent.url(task.id).path, inFileViewerRootedAtPath: "") }
@@ -303,8 +306,7 @@ struct TaskDetailView: View {
             CadenceCard(title: "Next scheduled run", symbol: "clock", storageKey: sectionKey("next")) {
                 if let next = nextOccurrence {
                     Text(draft.schedule.formatted(next)).font(.system(size: 17, weight: .medium)).fixedSize(horizontal: false, vertical: true)
-                    if !draft.enabled { StatusBadge(title: "Preview · disabled", color: .secondary) }
-                    else if next < Date() { StatusBadge(title: "Catch-up pending", color: .orange) }
+                    if next < Date() { StatusBadge(title: "Catch-up pending", color: .orange) }
                     else { Text(next, style: .relative).font(.cadenceCaption).foregroundStyle(.secondary) }
                     Divider()
                     ForEach(Array(previews.dropFirst()), id: \.self) { date in
@@ -315,11 +317,11 @@ struct TaskDetailView: View {
             CadenceCard(title: "Working directory", symbol: "folder", storageKey: sectionKey("directory")) {
                 WorkingDirectoryFields(task: $draft).disabled(running)
             }
-            CadenceCard(title: "Environment", symbol: "terminal", storageKey: sectionKey("environment"), initiallyExpanded: false) {
+            CadenceCard(title: "Environment variables", symbol: "terminal", storageKey: sectionKey("environment"), initiallyExpanded: false) {
                 EnvironmentFields(task: $draft).disabled(running)
             }
             if let url = model.configFiles[task.id] { configCard(url) }
-            CadenceCard(title: "Available variables", symbol: "curlybraces", storageKey: sectionKey("variables"), initiallyExpanded: false) {
+            CadenceCard(title: "Global variables", symbol: "curlybraces", storageKey: sectionKey("variables"), initiallyExpanded: false) {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(["date", "timestamp", "unix", "scheduled_date", "scheduled_timestamp", "input", "previous_output", "previous_output_file"], id: \.self) { name in
                         Text("{{\(name)}}").font(.system(size: 13, design: .monospaced))
@@ -336,16 +338,11 @@ struct TaskDetailView: View {
     }
     func configCard(_ url: URL) -> some View {
         CadenceCard(title: "Config file", symbol: "doc.text", storageKey: sectionKey("config")) {
-            Label("JSON · version 1", systemImage: "checkmark.circle").font(.cadenceCaption).foregroundStyle(.secondary)
             Text(url.lastPathComponent).font(.system(size: 13, design: .monospaced))
                 .lineLimit(1).truncationMode(.middle).help(url.path).textSelection(.enabled)
-            HStack {
-                Button { model.editConfig(url) } label: { Label("Edit File…", systemImage: "square.and.pencil") }
-                Spacer()
-                Menu {
-                    Button("Show in Finder") { NSWorkspace.shared.selectFile(url.path, inFileViewerRootedAtPath: "") }
-                    Button("Export Config…") { model.exportTasks() }.disabled(dirty)
-                } label: { Image(systemName: "ellipsis") }.fixedSize().help("Config file actions")
+            HStack(spacing: 10) {
+                Button { model.editConfig(url) } label: { Label("Edit Config…", systemImage: "square.and.pencil") }
+                Button("Show in Finder") { NSWorkspace.shared.selectFile(url.path, inFileViewerRootedAtPath: "") }
             }
         }
     }

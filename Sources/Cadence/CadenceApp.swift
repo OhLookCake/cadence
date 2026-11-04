@@ -18,7 +18,6 @@ import AppKit
             CommandGroup(replacing: .newItem) {
                 Button("New Task…") { model.create() }.keyboardShortcut("n")
                 Button("Import Config…") { model.importTasks() }
-                Button("Export Config…") { model.exportTasks() }.disabled(model.selection == nil)
             }
             CommandMenu("Task") {
                 Button("Run Now") { if let task = model.tasks.first(where: { $0.id == model.selection }) { model.runNow(task) } }.keyboardShortcut("r").disabled(model.selection == nil)
@@ -58,8 +57,8 @@ struct PreferencesView: View {
             Section("Local data") {
                 Text(model.store.root.path).font(.cadenceCaption.monospaced()).textSelection(.enabled)
                 Button("Open Data Folder") { NSWorkspace.shared.open(model.store.root) }
-                HStack { Button("Export Config…") { model.exportTasks() }.disabled(model.selection == nil); Button("Import Config…") { model.importTasks() } }
-                Text("Definitions, environment values, prompts and output are stored locally. Run history remains after deleting a task. Exported definitions include environment values.").font(.cadenceCaption).foregroundStyle(.secondary)
+                Button("Import Config…") { model.importTasks() }
+                Text("Definitions, environment values, prompts and output are stored locally. Run history remains after deleting a task.").font(.cadenceCaption).foregroundStyle(.secondary)
             }
         }.formStyle(.grouped).padding().frame(width: 540, height: 420)
     }

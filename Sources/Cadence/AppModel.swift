@@ -62,6 +62,7 @@ import CadenceCore
         launched.contains(task.id) || activeIDs.contains(task.id)
     }
     func nextDue(_ task: ScheduledTask) -> Date? {
+        guard task.enabled else { return nil }
         if let state = try? store.read(TaskState.self, at: store.stateURL(task.id)), state.revision == task.scheduleRevision { return state.nextDue }
         return task.schedule.next(after: task.scheduleActivatedAt.addingTimeInterval(-1))
     }
@@ -136,12 +137,6 @@ import CadenceCore
     }
     func cancel(_ task: ScheduledTask) {
         do { try store.cancel(task.id) } catch { self.error = error.localizedDescription }
-    }
-    func exportTasks() {
-        guard let task = tasks.first(where: { $0.id == selection }) else { return }
-        let panel = NSSavePanel(); panel.nameFieldStringValue = CadenceStore.configFileName(for: task.name); panel.allowedContentTypes = [.json]
-        guard panel.runModal() == .OK, let url = panel.url else { return }
-        do { try store.exportConfig(task, to: url) } catch { self.error = error.localizedDescription }
     }
     func importTasks() {
         let panel = NSOpenPanel(); panel.allowedContentTypes = [.json]; panel.allowsMultipleSelection = true
