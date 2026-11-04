@@ -261,11 +261,14 @@ struct TaskDetailView: View {
                     }
                     .help(runHelp).accessibilityHint(runHelp)
                 if running { Button("Stop", role: .destructive) { model.cancel(task) } }
-                StatusBadge(title: running ? "Running" : (task.enabled ? "Enabled" : "Paused"),
-                            color: running ? .orange : (task.enabled ? .cadence : .secondary))
+                if running { StatusBadge(title: "Running", color: .orange) }
                 Text("\(draft.steps.count) steps").font(.cadenceCaption).foregroundStyle(.secondary)
                 Spacer(minLength: 8)
-                Toggle("Enable schedule", isOn: $draft.enabled).toggleStyle(.switch).fixedSize().disabled(running)
+                Toggle(draft.enabled ? "Enabled" : "Disabled", isOn: $draft.enabled)
+                    .toggleStyle(.switch).fixedSize().disabled(running)
+                    .accessibilityLabel("Schedule")
+                    .accessibilityValue(draft.enabled ? "Enabled" : "Disabled")
+                    .help("Enable or disable scheduled runs. Save Changes to apply.")
                 Menu {
                     if let url = model.configFiles[task.id] { Button("Edit Config File…") { model.editConfig(url) } }
                     Button("Export Config…") { model.exportTasks() }.disabled(dirty)
