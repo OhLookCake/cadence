@@ -6,6 +6,9 @@ Schedules local workflows with launchd. Requires macOS 14 or later. No third-par
 
 _Most of this could be done directly with launchd if you are comfortable enough with writing those scripts but this provides a nice abstraction on top including monitoring multiple workflows, and easier visualization/debugging._
 
+![Cadence workflow editor with an example daily project brief and its three steps](docs/images/cadence-workflow.jpg)
+
+*Screenshot uses fictional demo workflows.*
 
 
 ## What it can do
