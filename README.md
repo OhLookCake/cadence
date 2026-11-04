@@ -14,7 +14,7 @@ Keep the app at a stable path once you enable schedules: launchd points to its b
 
 ## Tasks
 
-Create a task with **⌘N** or a starter button. Its overview is directly editable: name, notes, schedule, workflow, working directory, and environment all appear on the same page. Use **Save Changes** (⌘S) to apply edits, or **Revert** to discard them. Unsaved edits remain available when switching between tasks. Save before using **Run Now**. Tasks start paused; enable the schedule when ready.
+Create a task with **⌘N** or **New Task**. Its overview is directly editable: name, notes, schedule, workflow, working directory, and environment all appear on the same page. Use **Save Changes** (⌘S) to apply edits, or **Revert** to discard them. Unsaved edits remain available when switching between tasks. Save before using **Run Now**. Tasks start paused; enable the schedule when ready.
 
 | Feature | Behavior |
 | --- | --- |

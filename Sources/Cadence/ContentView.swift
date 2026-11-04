@@ -157,14 +157,6 @@ struct DashboardView: View {
                         }
                     }
                 }
-                VStack(alignment: .leading, spacing: 13) {
-                    Text("START WITH A STEP").font(.system(size: 10, weight: .semibold)).tracking(1.4).foregroundStyle(.secondary)
-                    LazyVGrid(columns: Array(repeating: GridItem(.flexible()), count: 3), spacing: 12) { ForEach(StepKind.allCases) { kind in
-                        Button { model.create(kind) } label: {
-                            VStack(alignment: .leading, spacing: 12) { Image(systemName: kind.symbol).font(.system(size: 20, weight: .light)).foregroundStyle(Color.cadence); Text(kind.title).font(.system(size: 12, weight: .medium)) }.frame(maxWidth: .infinity, minHeight: 82, alignment: .leading).padding(16).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 12))
-                        }.buttonStyle(.plain)
-                    } }
-                }
             }.padding(28).frame(maxWidth: 1760).frame(maxWidth: .infinity)
         }.navigationTitle("Overview").background(Color.canvas)
     }
