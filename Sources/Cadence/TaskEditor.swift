@@ -10,9 +10,9 @@ struct EditorField: View {
     var placeholder = ""
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text(title).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text(title).font(.cadenceFieldLabel).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             TextField(placeholder, text: $text).textFieldStyle(.roundedBorder)
-                .font(monospaced ? .system(size: 12, design: .monospaced) : .system(size: 13))
+                .font(monospaced ? .system(size: 14, design: .monospaced) : .system(size: 15))
                 .accessibilityLabel(title)
         }
     }
@@ -24,7 +24,7 @@ struct EditorPicker<Selection: Hashable, Options: View>: View {
     @ViewBuilder var options: () -> Options
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(title).font(.cadenceFieldLabel).foregroundStyle(.secondary)
             Picker(title, selection: $selection, content: options)
                 .labelsHidden().pickerStyle(.menu)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -37,14 +37,14 @@ struct DurationField: View {
     @Binding var seconds: Int
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(title).font(.cadenceFieldLabel).foregroundStyle(.secondary)
             HStack(spacing: 8) {
                 TextField("", value: $seconds, format: .number.grouping(.never))
                     .textFieldStyle(.roundedBorder).frame(width: 80)
                     .labelsHidden().accessibilityLabel(title + " in seconds")
                 Text("seconds").foregroundStyle(.secondary)
             }
-        }.font(.system(size: 12)).frame(maxWidth: 260, alignment: .leading)
+        }.font(.system(size: 14)).frame(maxWidth: 260, alignment: .leading)
     }
 }
 struct CodeField: View {
@@ -73,13 +73,13 @@ struct CodeField: View {
                 resizeHandle
             }.padding(.horizontal, 6).padding(.bottom, 3)
         }
-            .font(monospaced ? .system(size: 12, design: .monospaced) : .system(size: 13))
+            .font(monospaced ? .system(size: 14, design: .monospaced) : .system(size: 15))
             .frame(height: editorHeight)
             .background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 8))
             .overlay(RoundedRectangle(cornerRadius: 8).strokeBorder(Color.primary.opacity(0.1)).allowsHitTesting(false))
     }
     private var resizeHandle: some View {
-        Image(systemName: "line.3.horizontal").font(.system(size: 9, weight: .semibold))
+        Image(systemName: "line.3.horizontal").font(.system(size: 11, weight: .semibold))
             .foregroundStyle(.secondary).frame(width: 30, height: 16).contentShape(Rectangle())
             .help("Drag up or down to resize")
             .onHover { hovering in
@@ -144,7 +144,7 @@ struct ScheduleFields: View {
             if task.schedule.kind == .everyDays {
                 DatePicker("Starting on", selection: $task.schedule.anchor, displayedComponents: .date).environment(\.timeZone, task.schedule.calendar.timeZone)
             }
-            Text("Uses this Mac’s local time, including daylight-saving changes. Checks run each minute.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text("Uses this Mac’s local time, including daylight-saving changes. Checks run each minute.").font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
     func toggleDay(_ day: Int) {
@@ -160,10 +160,10 @@ struct MissedRunFields: View {
             Picker("On return", selection: $task.missedPolicy) {
                 ForEach(MissedPolicy.allCases) { policy in Text(policy.title).tag(policy) }
             }
-            Text(task.missedPolicy.detail).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            if task.missedPolicy == .all { Stepper("Up to \(task.catchUpLimit) runs per check", value: $task.catchUpLimit, in: 1...100).font(.caption) }
+            Text(task.missedPolicy.detail).font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            if task.missedPolicy == .all { Stepper("Up to \(task.catchUpLimit) runs per check", value: $task.catchUpLimit, in: 1...100).font(.cadenceCaption) }
             if task.missedPolicy == .skip { DurationField(title: "Grace period", seconds: $task.graceSeconds) }
-            Text("Runs of this task never overlap. Re-enabling a paused task or changing its schedule starts from now.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text("Runs of this task never overlap. Re-enabling a paused task or changing its schedule starts from now.").font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -187,7 +187,7 @@ struct ScheduleConfiguration: View {
         DisclosureGroup(isExpanded: $missedRunsExpanded) {
             MissedRunFields(task: $task).padding(.top, 14)
         } label: {
-            Label("Missed runs", systemImage: "arrow.trianglehead.clockwise").font(.system(size: 12, weight: .semibold))
+            Label("Missed runs", systemImage: "arrow.trianglehead.clockwise").font(.system(size: 14, weight: .semibold))
         }
     }
 }
@@ -210,9 +210,9 @@ struct EnvironmentFields: View {
     @Binding var task: ScheduledTask
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
-            Text("Environment variables · one KEY=value per line").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text("Environment variables · one KEY=value per line").font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             CodeField(text: $task.environment, height: 75, label: "Environment variables")
-            Text("PATH includes Homebrew and system tools. Values are stored in the local task definition.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+            Text("PATH includes Homebrew and system tools. Values are stored in the local task definition.").font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
     }
 }
@@ -240,9 +240,9 @@ struct WorkflowEditor: View {
                 VStack(alignment: .leading, spacing: 5) {
                     Button { expanded.toggle() } label: {
                         HStack(spacing: 10) {
-                            Image(systemName: expanded ? "chevron.down" : "chevron.right").font(.system(size: 13, weight: .semibold))
-                            Text("Workflow").font(.system(size: 22, weight: .semibold, design: .rounded))
-                            Text("\(task.steps.count) steps").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                            Image(systemName: expanded ? "chevron.down" : "chevron.right").font(.system(size: 15, weight: .semibold))
+                            Text("Workflow").font(.system(size: 24, weight: .semibold, design: .rounded))
+                            Text("\(task.steps.count) steps").font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
                         }.contentShape(Rectangle())
                     }.buttonStyle(.plain).accessibilityLabel(expanded ? "Collapse Workflow" : "Expand Workflow")
                 }
@@ -252,7 +252,7 @@ struct WorkflowEditor: View {
             if expanded {
             if let issue = referenceIssue {
                 Label(issue, systemImage: "exclamationmark.triangle")
-                    .font(.callout).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
+                    .font(.cadenceCallout).foregroundStyle(.orange).fixedSize(horizontal: false, vertical: true)
             }
             dropTarget(0) { WorkflowBoundary(title: "Start", symbol: "play.fill") }
             ForEach($task.steps) { $step in
@@ -262,12 +262,12 @@ struct WorkflowEditor: View {
                         WorkflowDragHandle(transfer: WorkflowStepTransfer(taskID: task.id, stepID: step.id),
                                            title: "\(index + 1). \(step.name)", enabled: isEnabled)
                             .frame(width: 18, height: 28)
-                        Text(String(format: "%02d", index + 1)).font(.system(size: 12, weight: .semibold, design: .monospaced))
+                        Text(String(format: "%02d", index + 1)).font(.system(size: 14, weight: .semibold, design: .monospaced))
                             .foregroundStyle(Color.cadence).frame(width: 30, height: 30)
                             .background(Color.cadence.opacity(0.1), in: RoundedRectangle(cornerRadius: 7))
                         VStack(alignment: .leading, spacing: 4) {
-                            TextField("Step name", text: $step.name).font(.system(size: 14, weight: .semibold)).textFieldStyle(.plain).accessibilityLabel("Step \(index + 1) name")
-                            Label(step.kind.title, systemImage: step.kind.symbol).font(.caption).foregroundStyle(.secondary)
+                            TextField("Step name", text: $step.name).font(.cadenceStepTitle).textFieldStyle(.plain).accessibilityLabel("Step \(index + 1) name")
+                            Label(step.kind.title, systemImage: step.kind.symbol).font(.cadenceCaption).foregroundStyle(.secondary)
                         }
                         if step.runIf != nil { Image(systemName: "line.3.horizontal.decrease.circle").foregroundStyle(Color.cadence).help("This step has a run condition") }
                         Spacer()
@@ -347,7 +347,7 @@ struct WorkflowBoundary: View {
     let title: String
     let symbol: String
     var body: some View {
-        Label(title.uppercased(), systemImage: symbol).font(.system(size: 10, weight: .semibold))
+        Label(title.uppercased(), systemImage: symbol).font(.system(size: 12, weight: .semibold))
             .tracking(1.5).foregroundStyle(Color.cadence).padding(.leading, 24)
     }
 }
@@ -356,10 +356,10 @@ struct WorkflowConnector: View {
         HStack(spacing: 12) {
             VStack(spacing: 0) {
                 Rectangle().fill(Color.cadence.opacity(0.5)).frame(width: 2, height: 10)
-                Image(systemName: "arrow.down").font(.system(size: 14, weight: .semibold)).foregroundStyle(Color.cadence)
+                Image(systemName: "arrow.down").font(.system(size: 16, weight: .semibold)).foregroundStyle(Color.cadence)
                 Rectangle().fill(Color.cadence.opacity(0.5)).frame(width: 2, height: 10)
             }.frame(width: 34)
-            Text("THEN").font(.system(size: 9, weight: .medium)).tracking(1.5).foregroundStyle(.secondary)
+            Text("THEN").font(.system(size: 11, weight: .medium)).tracking(1.5).foregroundStyle(.secondary)
         }.padding(.leading, 20).accessibilityLabel("Then run the next step")
     }
 }
@@ -383,7 +383,7 @@ struct StepFields: View {
                     .frame(maxWidth: 280, alignment: .leading)
                     .help("Start with a lowercase letter. Use lowercase letters, digits, and underscores, up to 40 characters. Keep this name stable when renaming the step.")
                 Text("Lets later steps reuse this output by name.")
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    .font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
             toolSettings
             if earlierSteps.contains(where: { !$0.key.isEmpty }) || step.runIf != nil {
@@ -394,14 +394,14 @@ struct StepFields: View {
             DisclosureGroup(isExpanded: $executionExpanded) {
                 VStack(alignment: .leading, spacing: 16) {
                     DurationField(title: durationTitle, seconds: $step.timeoutSeconds)
-                    Toggle("Continue after failure", isOn: $step.continueOnFailure).toggleStyle(.checkbox).font(.callout)
+                    Toggle("Continue after failure", isOn: $step.continueOnFailure).toggleStyle(.checkbox).font(.cadenceCallout)
                     if step.kind == .question { hint("Cancelling or timing out always stops the workflow.") }
                 }.padding(.top, 12)
             } label: {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Execution settings").font(.system(size: 12, weight: .medium))
+                    Text("Execution settings").font(.system(size: 14, weight: .medium))
                     Text("\(step.timeoutSeconds) sec · \(step.continueOnFailure ? "Continue after failure" : "Stop on failure")")
-                        .font(.caption).foregroundStyle(.secondary)
+                        .font(.cadenceCaption).foregroundStyle(.secondary)
                 }
             }
         }.frame(maxWidth: 720, alignment: .leading)
@@ -426,12 +426,12 @@ struct StepFields: View {
         switch step.kind { case .question: return "Wait for an answer"; case .response: return "Dismiss after"; default: return "Timeout" }
     }
     func hint(_ text: String) -> some View {
-        Text(text).font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+        Text(text).font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
     }
     func textInput(_ title: String, label: String, height: CGFloat = 140, help: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack(alignment: .firstTextBaseline) {
-                Text(title).font(.system(size: 12, weight: .medium))
+                Text(title).font(.system(size: 14, weight: .medium))
                 Spacer(minLength: 12)
                 if earlierSteps.contains(where: { !$0.key.isEmpty }) { referenceMenu }
             }
@@ -448,7 +448,7 @@ struct StepFields: View {
                 fileField("Script file or executable", text: $step.scriptPath, script: true)
                 VStack(alignment: .leading, spacing: 8) {
                     HStack {
-                        Text("Arguments").font(.system(size: 12, weight: .medium))
+                        Text("Arguments").font(.system(size: 14, weight: .medium))
                         Spacer(minLength: 12)
                         if earlierSteps.contains(where: { !$0.key.isEmpty }) { referenceMenu }
                     }
@@ -479,7 +479,7 @@ struct StepFields: View {
         case .codex:
             Divider()
             VStack(alignment: .leading, spacing: 14) {
-                Text("Codex settings").font(.system(size: 12, weight: .medium))
+                Text("Codex settings").font(.system(size: 14, weight: .medium))
                 fileField("Codex executable", text: $step.executable, script: false)
                 ViewThatFits(in: .horizontal) {
                     HStack(alignment: .top, spacing: 20) { modelField.frame(minWidth: 220); sandboxField.frame(minWidth: 220) }
@@ -490,7 +490,7 @@ struct StepFields: View {
         case .localLLM:
             Divider()
             VStack(alignment: .leading, spacing: 14) {
-                Text("Model connection").font(.system(size: 12, weight: .medium))
+                Text("Model connection").font(.system(size: 14, weight: .medium))
                 LocalModelConnectionFields(model: $step.model, endpoint: $step.endpoint, apiKey: llmAPIKey)
                 hint("Works with Ollama, LM Studio, and compatible servers. Optional API key: CADENCE_LLM_API_KEY in Environment.")
             }
@@ -546,7 +546,7 @@ struct RunConditionFields: View {
             Toggle("Run only when…", isOn: Binding(get: { condition != nil }, set: { enabled in
                 condition = enabled ? StepCondition(step: namedSteps.first?.key ?? "") : nil
             }))
-            .toggleStyle(.checkbox).font(.callout).disabled(namedSteps.isEmpty && condition == nil)
+            .toggleStyle(.checkbox).font(.cadenceCallout).disabled(namedSteps.isEmpty && condition == nil)
             if let selected = condition {
                 EditorPicker(title: "Earlier result", selection: current.step, width: 440) {
                     if !namedSteps.contains(where: { $0.key == selected.step }) {
@@ -574,9 +574,9 @@ struct RunConditionFields: View {
                 Text(selected.field == .output
                      ? "Empty checks ignore whitespace. If the earlier step failed or was skipped, this output condition is false. Skipping preserves the previous output."
                      : "A failed step must allow continuation for later steps to check its status. Skipped results have status skipped.")
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    .font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             } else if namedSteps.isEmpty {
-                Text("Give an earlier step a result name to add a condition here.").font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                Text("Give an earlier step a result name to add a condition here.").font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }.frame(maxWidth: 560, alignment: .leading)
     }

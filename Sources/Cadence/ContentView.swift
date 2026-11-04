@@ -16,21 +16,21 @@ struct ContentView: View {
         NavigationSplitView {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 10) {
-                    Image(systemName: "clock.arrow.circlepath").font(.system(size: 26, weight: .medium)).foregroundStyle(Color.cadence)
-                    VStack(alignment: .leading, spacing: 3) { Text("Cadence").font(.headline); Text("ON THIS MAC").font(.system(size: 9, weight: .semibold, design: .rounded)).tracking(1.6).foregroundStyle(.secondary) }
+                    Image(systemName: "clock.arrow.circlepath").font(.system(size: 28, weight: .medium)).foregroundStyle(Color.cadence)
+                    VStack(alignment: .leading, spacing: 3) { Text("Cadence").font(.cadenceHeading); Text("ON THIS MAC").font(.system(size: 11, weight: .semibold, design: .rounded)).tracking(1.6).foregroundStyle(.secondary) }
                 }.padding(.horizontal, 18).padding(.vertical, 22)
                 Button { model.selection = nil } label: {
                     HStack { Label("Overview", systemImage: "square.grid.2x2"); Spacer(); Text("\(model.tasks.count)").foregroundStyle(.secondary) }.padding(10)
                 }.buttonStyle(.plain).background(model.selection == nil ? Color.cadence.opacity(0.1) : .clear, in: RoundedRectangle(cornerRadius: 8)).padding(.horizontal, 12)
-                HStack { Text("TASKS").font(.system(size: 10, weight: .semibold)).tracking(1.3).foregroundStyle(.secondary); Spacer(); Menu { ForEach(["All tasks", "Enabled", "Paused"], id: \.self) { value in Button(value) { filter = value } } } label: { Image(systemName: "line.3.horizontal.decrease") }.menuStyle(.borderlessButton).fixedSize() }.padding(.horizontal, 20).padding(.top, 28).padding(.bottom, 10)
+                HStack { Text("TASKS").font(.system(size: 12, weight: .semibold)).tracking(1.3).foregroundStyle(.secondary); Spacer(); Menu { ForEach(["All tasks", "Enabled", "Paused"], id: \.self) { value in Button(value) { filter = value } } } label: { Image(systemName: "line.3.horizontal.decrease") }.menuStyle(.borderlessButton).fixedSize() }.padding(.horizontal, 20).padding(.top, 28).padding(.bottom, 10)
                 TextField("Find a task", text: $search).textFieldStyle(.roundedBorder).padding(.horizontal, 14).padding(.bottom, 8)
                 List(selection: $model.selection) {
                     ForEach(filtered) { task in
                         HStack(spacing: 10) {
                             Image(systemName: task.steps.first?.kind.symbol ?? "terminal").foregroundStyle(task.enabled ? Color.cadence : .secondary).frame(width: 22)
                             VStack(alignment: .leading, spacing: 4) {
-                                Text(task.name).font(.system(size: 13, weight: .medium)).lineLimit(1)
-                                Text(task.schedule.summary).font(.system(size: 10)).foregroundStyle(.secondary).lineLimit(1)
+                                Text(task.name).font(.system(size: 15, weight: .medium)).lineLimit(1)
+                                Text(task.schedule.summary).font(.system(size: 12)).foregroundStyle(.secondary).lineLimit(1)
                             }
                             Spacer(minLength: 0)
                             Circle().fill(model.isRunning(task) ? .orange : (task.enabled ? Color.cadence : Color.secondary.opacity(0.35))).frame(width: 6, height: 6)
@@ -55,8 +55,8 @@ struct ContentView: View {
                 .padding(.vertical, 12)
                 Divider().padding(.horizontal, 16)
                 VStack(alignment: .leading, spacing: 7) {
-                    Label("Powered by launchd", systemImage: "desktopcomputer").font(.caption).foregroundStyle(.secondary)
-                    Text("Runs locally, even with this window closed.").font(.system(size: 10)).foregroundStyle(.tertiary)
+                    Label("Powered by launchd", systemImage: "desktopcomputer").font(.cadenceCaption).foregroundStyle(.secondary)
+                    Text("Runs locally, even with this window closed.").font(.system(size: 12)).foregroundStyle(.tertiary)
                 }.padding(20)
             }
             .dropDestination(for: URL.self) { urls, _ in
@@ -64,7 +64,7 @@ struct ContentView: View {
                 model.importTasks(from: urls)
                 return true
             }
-            .navigationSplitViewColumnWidth(min: 220, ideal: 250, max: 280)
+            .navigationSplitViewColumnWidth(min: 240, ideal: 270, max: 320)
         } detail: {
             VStack(spacing: 0) {
             if !model.configIssues.isEmpty || !model.registrationIssues.isEmpty { ConfigHealthBanner() }
@@ -99,11 +99,11 @@ struct CadenceCard<Content: View>: View {
         VStack(alignment: .leading, spacing: 16) {
             Button { expanded.toggle() } label: {
                 HStack(spacing: 9) {
-                    Image(systemName: symbol).font(.system(size: 14)).foregroundStyle(Color.cadence).frame(width: 18)
-                    Text(title).font(.system(size: 13, weight: .semibold))
+                    Image(systemName: symbol).font(.system(size: 16)).foregroundStyle(Color.cadence).frame(width: 18)
+                    Text(title).font(.cadenceSection)
                     Spacer(minLength: 8)
-                    if !expanded, let summary { Text(summary).font(.caption).foregroundStyle(.secondary).lineLimit(1) }
-                    Image(systemName: expanded ? "chevron.down" : "chevron.right").font(.system(size: 10, weight: .semibold)).foregroundStyle(.secondary)
+                    if !expanded, let summary { Text(summary).font(.cadenceCaption).foregroundStyle(.secondary).lineLimit(1) }
+                    Image(systemName: expanded ? "chevron.down" : "chevron.right").font(.system(size: 12, weight: .semibold)).foregroundStyle(.secondary)
                 }.contentShape(Rectangle()).padding(.vertical, 2)
             }.buttonStyle(.plain).accessibilityLabel((expanded ? "Collapse " : "Expand ") + title)
             if expanded { content }
@@ -115,7 +115,7 @@ struct CadenceCard<Content: View>: View {
 struct StatusBadge: View {
     let title: String
     let color: Color
-    var body: some View { Text(title).font(.system(size: 10, weight: .semibold)).padding(.horizontal, 9).padding(.vertical, 5).background(color.opacity(0.1), in: Capsule()).foregroundStyle(color) }
+    var body: some View { Text(title).font(.system(size: 12, weight: .semibold)).padding(.horizontal, 9).padding(.vertical, 5).background(color.opacity(0.1), in: Capsule()).foregroundStyle(color) }
 }
 struct DashboardView: View {
     @EnvironmentObject var model: AppModel
@@ -125,11 +125,11 @@ struct DashboardView: View {
             VStack(alignment: .leading, spacing: 25) {
                 HStack(alignment: .top) {
                     VStack(alignment: .leading, spacing: 9) {
-                        Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()).uppercased()).font(.system(size: 10, weight: .medium)).tracking(1.5).foregroundStyle(.secondary)
-                        Text("Your task workspace").font(.system(size: 32, weight: .semibold, design: .rounded))
+                        Text(Date.now.formatted(.dateTime.weekday(.wide).month(.wide).day()).uppercased()).font(.system(size: 12, weight: .medium)).tracking(1.5).foregroundStyle(.secondary)
+                        Text("Your task workspace").font(.system(size: 34, weight: .semibold, design: .rounded))
                     }
                     Spacer()
-                    Image(systemName: "clock.badge.checkmark").font(.system(size: 48, weight: .ultraLight)).foregroundStyle(Color.cadence).padding(.trailing, 10)
+                    Image(systemName: "clock.badge.checkmark").font(.system(size: 50, weight: .ultraLight)).foregroundStyle(Color.cadence).padding(.trailing, 10)
                 }.padding(.top, 12)
                 HStack(spacing: 14) {
                     metric("Enabled", value: model.tasks.filter(\.enabled).count, symbol: "calendar", color: .cadence)
@@ -138,8 +138,8 @@ struct DashboardView: View {
                 }
                 if model.tasks.isEmpty {
                     VStack(spacing: 16) {
-                        ZStack { Circle().fill(Color.cadence.opacity(0.08)).frame(width: 88, height: 88); Image(systemName: "calendar.badge.plus").font(.system(size: 35, weight: .light)).foregroundStyle(Color.cadence) }
-                        Text("A little less to remember.").font(.system(size: 23, weight: .medium, design: .rounded))
+                        ZStack { Circle().fill(Color.cadence.opacity(0.08)).frame(width: 88, height: 88); Image(systemName: "calendar.badge.plus").font(.system(size: 37, weight: .light)).foregroundStyle(Color.cadence) }
+                        Text("A little less to remember.").font(.system(size: 25, weight: .medium, design: .rounded))
                         Button("Create your first task") { model.create() }.buttonStyle(.borderedProminent).controlSize(.large).padding(.top, 4)
                         Button("Import Config…") { model.importTasks() }.buttonStyle(.bordered).controlSize(.large)
                     }.frame(maxWidth: .infinity).padding(.vertical, 40).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 16))
@@ -150,8 +150,8 @@ struct DashboardView: View {
                             Button { model.selection = task.id } label: {
                                 HStack(spacing: 14) {
                                     Image(systemName: task.steps.first?.kind.symbol ?? "terminal").foregroundStyle(Color.cadence).frame(width: 30)
-                                    VStack(alignment: .leading, spacing: 5) { Text(task.name).fontWeight(.medium); Text(task.schedule.summary).font(.caption).foregroundStyle(.secondary) }
-                                    Spacer(); Text(date, style: .relative).font(.caption).foregroundStyle(.secondary); Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                                    VStack(alignment: .leading, spacing: 5) { Text(task.name).fontWeight(.medium); Text(task.schedule.summary).font(.cadenceCaption).foregroundStyle(.secondary) }
+                                    Spacer(); Text(date, style: .relative).font(.cadenceCaption).foregroundStyle(.secondary); Image(systemName: "chevron.right").font(.cadenceCaption).foregroundStyle(.tertiary)
                                 }.padding(.vertical, 6)
                             }.buttonStyle(.plain)
                         }
@@ -161,7 +161,7 @@ struct DashboardView: View {
         }.navigationTitle("Overview").background(Color.canvas)
     }
     func metric(_ title: String, value: Int, symbol: String, color: Color) -> some View {
-        HStack { VStack(alignment: .leading, spacing: 7) { Text("\(value)").font(.system(size: 29, weight: .medium, design: .rounded)); Text(title).font(.system(size: 11)).foregroundStyle(.secondary) }; Spacer(); Image(systemName: symbol).font(.system(size: 23, weight: .light)).foregroundStyle(color) }.padding(20).frame(maxWidth: .infinity).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 13))
+        HStack { VStack(alignment: .leading, spacing: 7) { Text("\(value)").font(.system(size: 31, weight: .medium, design: .rounded)); Text(title).font(.system(size: 13)).foregroundStyle(.secondary) }; Spacer(); Image(systemName: symbol).font(.system(size: 25, weight: .light)).foregroundStyle(color) }.padding(20).frame(maxWidth: .infinity).background(Color(nsColor: .controlBackgroundColor), in: RoundedRectangle(cornerRadius: 13))
     }
 }
 
@@ -193,7 +193,7 @@ struct TaskDetailView: View {
 
     var body: some View {
         GeometryReader { geometry in
-            let wide = geometry.size.width >= 1120
+            let wide = geometry.size.width >= 1180
             ScrollView {
                 VStack(alignment: .leading, spacing: 24) {
                     header
@@ -205,7 +205,7 @@ struct TaskDetailView: View {
                     if wide {
                         HStack(alignment: .top, spacing: 24) {
                             primaryColumn.frame(maxWidth: .infinity, alignment: .topLeading)
-                            contextColumn.frame(width: 320, alignment: .topLeading)
+                            contextColumn.frame(width: 350, alignment: .topLeading)
                         }
                     } else {
                         primaryColumn
@@ -226,7 +226,7 @@ struct TaskDetailView: View {
             if value == task { baseTask = task }
         }
         .onChange(of: task) { old, new in if draft == old { baseTask = new; draft = new } }
-        .sheet(item: $selectedRun) { run in RunLogView(run: run).environmentObject(model) }
+        .sheet(item: $selectedRun) { run in RunLogView(run: run).environmentObject(model).font(.cadenceBody) }
         .confirmationDialog("Delete \(task.name)?", isPresented: $confirmDelete) {
             Button("Delete Task", role: .destructive) { model.remove(task) }
         } message: { Text("Its config and launchd schedule will be removed. Run history and output files will be retained.") }
@@ -236,18 +236,18 @@ struct TaskDetailView: View {
         VStack(alignment: .leading, spacing: 20) {
             HStack(alignment: .top, spacing: 18) {
                 Image(systemName: "point.3.connected.trianglepath.dotted")
-                    .font(.system(size: 25, weight: .medium)).foregroundStyle(Color.cadence)
+                    .font(.system(size: 27, weight: .medium)).foregroundStyle(Color.cadence)
                     .frame(width: 52, height: 52).background(Color.cadence.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
                     .padding(.top, 22)
                 VStack(alignment: .leading, spacing: 14) {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Task name").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                        Text("Task name").font(.cadenceCaption.weight(.medium)).foregroundStyle(.secondary)
                         TextField("Name this task", text: $draft.name)
-                            .font(.system(size: 22, weight: .semibold)).textFieldStyle(.roundedBorder)
+                            .font(.cadenceTaskTitle).textFieldStyle(.roundedBorder)
                             .controlSize(.large).accessibilityLabel("Task name")
                     }
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("Description").font(.caption.weight(.medium)).foregroundStyle(.secondary)
+                        Text("Description").font(.cadenceCaption.weight(.medium)).foregroundStyle(.secondary)
                         CodeField(text: $draft.notes, height: 75, label: "Task description", monospaced: false,
                                   placeholder: "Describe what this task does…")
                     }
@@ -260,7 +260,7 @@ struct TaskDetailView: View {
                 if running { Button("Stop", role: .destructive) { model.cancel(task) } }
                 StatusBadge(title: running ? "Running" : (task.enabled ? "Enabled" : "Paused"),
                             color: running ? .orange : (task.enabled ? .cadence : .secondary))
-                Text("\(draft.steps.count) steps").font(.caption).foregroundStyle(.secondary)
+                Text("\(draft.steps.count) steps").font(.cadenceCaption).foregroundStyle(.secondary)
                 Spacer(minLength: 8)
                 Toggle("Enable schedule", isOn: $draft.enabled).toggleStyle(.switch).fixedSize().disabled(running)
                 Menu {
@@ -282,7 +282,7 @@ struct TaskDetailView: View {
             CadenceCard(title: "Run history", symbol: "clock.arrow.circlepath", storageKey: sectionKey("history"), summary: "\(taskRuns.count) runs") {
                 if taskRuns.isEmpty {
                     Label("No runs yet. Enable its schedule or run this task now.", systemImage: "clock")
-                        .font(.callout).foregroundStyle(.secondary).padding(.vertical, 12)
+                        .font(.cadenceCallout).foregroundStyle(.secondary).padding(.vertical, 12)
                 }
                 ForEach(Array(taskRuns.prefix(showAllRuns ? 250 : 5))) { run in
                     runRow(run)
@@ -296,15 +296,15 @@ struct TaskDetailView: View {
         VStack(alignment: .leading, spacing: 18) {
             CadenceCard(title: "Next occurrence", symbol: "clock", storageKey: sectionKey("next")) {
                 if let next = nextOccurrence {
-                    Text(draft.schedule.formatted(next)).font(.system(size: 15, weight: .medium)).fixedSize(horizontal: false, vertical: true)
+                    Text(draft.schedule.formatted(next)).font(.system(size: 17, weight: .medium)).fixedSize(horizontal: false, vertical: true)
                     if !draft.enabled { StatusBadge(title: "Preview · paused", color: .secondary) }
                     else if next < Date() { StatusBadge(title: "Catch-up pending", color: .orange) }
-                    else { Text(next, style: .relative).font(.caption).foregroundStyle(.secondary) }
+                    else { Text(next, style: .relative).font(.cadenceCaption).foregroundStyle(.secondary) }
                     Divider()
                     ForEach(Array(previews.dropFirst()), id: \.self) { date in
-                        Text(draft.schedule.formatted(date)).font(.system(size: 11, design: .monospaced)).foregroundStyle(.secondary)
+                        Text(draft.schedule.formatted(date)).font(.system(size: 13, design: .monospaced)).foregroundStyle(.secondary)
                     }
-                } else { Text("No future occurrences").font(.callout).foregroundStyle(.secondary) }
+                } else { Text("No future occurrences").font(.cadenceCallout).foregroundStyle(.secondary) }
             }
             CadenceCard(title: "Working directory", symbol: "folder", storageKey: sectionKey("directory")) {
                 WorkingDirectoryFields(task: $draft).disabled(running)
@@ -316,22 +316,22 @@ struct TaskDetailView: View {
             CadenceCard(title: "Available variables", symbol: "curlybraces", storageKey: sectionKey("variables"), initiallyExpanded: false) {
                 VStack(alignment: .leading, spacing: 10) {
                     ForEach(["date", "timestamp", "unix", "scheduled_date", "scheduled_timestamp", "input", "previous_output", "previous_output_file"], id: \.self) { name in
-                        Text("{{\(name)}}").font(.system(size: 11, design: .monospaced))
+                        Text("{{\(name)}}").font(.system(size: 13, design: .monospaced))
                             .textSelection(.enabled).padding(.horizontal, 8).padding(.vertical, 5)
                             .background(Color.primary.opacity(0.04), in: RoundedRectangle(cornerRadius: 5))
                     }
                 }
                 Text("Use variables in arguments, prompts, alerts, and output paths. Inline commands use quoted TASK_ environment variables.")
-                    .font(.caption).foregroundStyle(.secondary)
+                    .font(.cadenceCaption).foregroundStyle(.secondary)
                 Text("Name a step’s result to reuse it later: {{steps.fetch.output}}, {{steps.fetch.output_file}}, or {{steps.fetch.status}}. Shell commands use $TASK_STEP_FETCH_OUTPUT, $TASK_STEP_FETCH_OUTPUT_FILE, and $TASK_STEP_FETCH_STATUS.")
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    .font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
     }
     func configCard(_ url: URL) -> some View {
         CadenceCard(title: "Config file", symbol: "doc.text", storageKey: sectionKey("config")) {
-            Label("JSON · version 1", systemImage: "checkmark.circle").font(.caption).foregroundStyle(.secondary)
-            Text(url.lastPathComponent).font(.system(size: 11, design: .monospaced))
+            Label("JSON · version 1", systemImage: "checkmark.circle").font(.cadenceCaption).foregroundStyle(.secondary)
+            Text(url.lastPathComponent).font(.system(size: 13, design: .monospaced))
                 .lineLimit(1).truncationMode(.middle).help(url.path).textSelection(.enabled)
             HStack {
                 Button { model.editConfig(url) } label: { Label("Edit File…", systemImage: "square.and.pencil") }
@@ -348,7 +348,7 @@ struct TaskDetailView: View {
             Divider()
             HStack(spacing: 14) {
                 Label(dirty ? "Unsaved changes" : "Saved to config file", systemImage: dirty ? "circle.fill" : "checkmark.circle")
-                    .font(.caption).foregroundStyle(dirty ? Color.orange : .secondary)
+                    .font(.cadenceCaption).foregroundStyle(dirty ? Color.orange : .secondary)
                 Spacer()
                 Button("Revert") { reloadFromDisk() }.disabled(!dirty)
                 Button("Save Changes") { save() }.buttonStyle(.borderedProminent).keyboardShortcut("s")
@@ -360,7 +360,7 @@ struct TaskDetailView: View {
     var conflictBanner: some View {
         HStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill").foregroundStyle(.orange)
-            Text("The config changed on disk. Reload it before saving this draft.").font(.callout)
+            Text("The config changed on disk. Reload it before saving this draft.").font(.cadenceCallout)
             Spacer()
             Button("Reload from file") { reloadFromDisk() }
         }.padding(14).background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
@@ -369,7 +369,7 @@ struct TaskDetailView: View {
         HStack {
             Label("Schedule is not registered with launchd.", systemImage: "exclamationmark.triangle")
             Spacer(); Button("Repair") { model.repair(task) }
-        }.font(.caption).padding(12).background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
+        }.font(.cadenceCaption).padding(12).background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 10))
     }
     func save() {
         do {
@@ -385,15 +385,15 @@ struct TaskDetailView: View {
     func runRow(_ run: RunRecord) -> some View {
         Button { selectedRun = run } label: {
             HStack(spacing: 12) {
-                Image(systemName: statusSymbol(run.status)).font(.system(size: 18)).foregroundStyle(statusColor(run.status)).frame(width: 24)
+                Image(systemName: statusSymbol(run.status)).font(.system(size: 20)).foregroundStyle(statusColor(run.status)).frame(width: 24)
                 VStack(alignment: .leading, spacing: 5) {
-                    Text(run.startedAt.formatted(date: .abbreviated, time: .standard)).font(.system(size: 12, weight: .medium))
-                    Text(run.message.isEmpty ? "Running…" : run.message).font(.caption).foregroundStyle(.secondary).lineLimit(2)
+                    Text(run.startedAt.formatted(date: .abbreviated, time: .standard)).font(.system(size: 14, weight: .medium))
+                    Text(run.message.isEmpty ? "Running…" : run.message).font(.cadenceCaption).foregroundStyle(.secondary).lineLimit(2)
                 }
                 Spacer(minLength: 10)
-                if run.manual { Text("Manual").font(.caption).foregroundStyle(.secondary) }
+                if run.manual { Text("Manual").font(.cadenceCaption).foregroundStyle(.secondary) }
                 StatusBadge(title: run.status.rawValue.capitalized, color: statusColor(run.status))
-                Image(systemName: "chevron.right").font(.caption).foregroundStyle(.tertiary)
+                Image(systemName: "chevron.right").font(.cadenceCaption).foregroundStyle(.tertiary)
             }.padding(.vertical, 6).contentShape(Rectangle())
         }.buttonStyle(.plain)
     }
@@ -412,17 +412,17 @@ struct RunLogView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
             HStack { Text(run.taskName).font(.title2.bold()); Spacer(); StatusBadge(title: current.status.rawValue.capitalized, color: statusColor(current.status)); Button("Done") { dismiss() }.keyboardShortcut(.cancelAction) }
-            Text("Scheduled: \(run.scheduledAt.formatted(date: .abbreviated, time: .standard))  ·  Started: \(run.startedAt.formatted(date: .abbreviated, time: .standard))").font(.caption).foregroundStyle(.secondary)
-            Text(current.message).font(.callout).textSelection(.enabled)
+            Text("Scheduled: \(run.scheduledAt.formatted(date: .abbreviated, time: .standard))  ·  Started: \(run.startedAt.formatted(date: .abbreviated, time: .standard))").font(.cadenceCaption).foregroundStyle(.secondary)
+            Text(current.message).font(.cadenceCallout).textSelection(.enabled)
             if let results = current.stepResults, !results.isEmpty {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 10) {
                         ForEach(Array(results.enumerated()), id: \.element.id) { index, result in
                             HStack(alignment: .top, spacing: 10) {
-                                Text("\(index + 1)").font(.caption.monospaced()).foregroundStyle(.secondary).frame(width: 20)
+                                Text("\(index + 1)").font(.cadenceCaption.monospaced()).foregroundStyle(.secondary).frame(width: 20)
                                 VStack(alignment: .leading, spacing: 3) {
-                                    Text(result.name).font(.callout.weight(.medium))
-                                    if !result.message.isEmpty { Text(result.message).font(.caption).foregroundStyle(.secondary).textSelection(.enabled) }
+                                    Text(result.name).font(.cadenceCallout.weight(.medium))
+                                    if !result.message.isEmpty { Text(result.message).font(.cadenceCaption).foregroundStyle(.secondary).textSelection(.enabled) }
                                 }
                                 Spacer()
                                 StatusBadge(title: result.status.rawValue.capitalized, color: statusColor(RunStatus(rawValue: result.status.rawValue) ?? .skipped))
@@ -431,8 +431,8 @@ struct RunLogView: View {
                     }.frame(maxWidth: .infinity, alignment: .leading).padding(12)
                 }.frame(maxHeight: 180).background(Color.primary.opacity(0.035), in: RoundedRectangle(cornerRadius: 8))
             }
-            ScrollView([.horizontal, .vertical]) { Text(model.store.log(run.id)).font(.system(size: 11, design: .monospaced)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .topLeading).padding(16) }.background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
-            HStack { Text("Full stdout and stderr are saved separately for each step.").font(.caption).foregroundStyle(.secondary); Spacer(); Button("Open Run Folder") { NSWorkspace.shared.open(model.store.runDirectory(run.id)) } }
+            ScrollView([.horizontal, .vertical]) { Text(model.store.log(run.id)).font(.system(size: 13, design: .monospaced)).textSelection(.enabled).frame(maxWidth: .infinity, alignment: .topLeading).padding(16) }.background(Color(nsColor: .textBackgroundColor), in: RoundedRectangle(cornerRadius: 10))
+            HStack { Text("Full stdout and stderr are saved separately for each step.").font(.cadenceCaption).foregroundStyle(.secondary); Spacer(); Button("Open Run Folder") { NSWorkspace.shared.open(model.store.runDirectory(run.id)) } }
         }.padding(24).frame(width: 850, height: 600)
     }
 }

@@ -76,7 +76,7 @@ final class StepGripView: NSView, NSDraggingSource {
         NSBezierPath(roundedRect: NSRect(x: 0, y: 0, width: 240, height: 36), xRadius: 8, yRadius: 8).fill()
         let paragraph = NSMutableParagraphStyle(); paragraph.lineBreakMode = .byTruncatingTail
         (title as NSString).draw(in: NSRect(x: 12, y: 9, width: 216, height: 20),
-                                withAttributes: [.font: NSFont.systemFont(ofSize: 13, weight: .medium), .foregroundColor: NSColor.labelColor, .paragraphStyle: paragraph])
+                                withAttributes: [.font: NSFont.systemFont(ofSize: 15, weight: .medium), .foregroundColor: NSColor.labelColor, .paragraphStyle: paragraph])
         image.unlockFocus()
         return image
     }

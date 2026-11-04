@@ -6,7 +6,7 @@ import AppKit
     @NSApplicationDelegateAdaptor(AppDelegate.self) var delegate
     var body: some Scene {
         WindowGroup {
-            ContentView().environmentObject(model)
+            ContentView().environmentObject(model).font(.cadenceBody)
                 .frame(minWidth: 1020, minHeight: 720)
                 .tint(Color.cadence)
         }
@@ -25,7 +25,7 @@ import AppKit
                 Button("Open Data Folder") { NSWorkspace.shared.open(model.store.root) }
             }
         }
-        Settings { PreferencesView().environmentObject(model) }
+        Settings { PreferencesView().environmentObject(model).font(.cadenceBody) }
     }
 }
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -55,10 +55,10 @@ struct PreferencesView: View {
                 LabeledContent("Registered schedules", value: "\(model.agentIDs.count)")
             }
             Section("Local data") {
-                Text(model.store.root.path).font(.caption.monospaced()).textSelection(.enabled)
+                Text(model.store.root.path).font(.cadenceCaption.monospaced()).textSelection(.enabled)
                 Button("Open Data Folder") { NSWorkspace.shared.open(model.store.root) }
                 HStack { Button("Export Config…") { model.exportTasks() }.disabled(model.selection == nil); Button("Import Config…") { model.importTasks() } }
-                Text("Definitions, environment values, prompts and output are stored locally. Run history remains after deleting a task. Exported definitions include environment values.").font(.caption).foregroundStyle(.secondary)
+                Text("Definitions, environment values, prompts and output are stored locally. Run history remains after deleting a task. Exported definitions include environment values.").font(.cadenceCaption).foregroundStyle(.secondary)
             }
         }.formStyle(.grouped).padding().frame(width: 540, height: 420)
     }

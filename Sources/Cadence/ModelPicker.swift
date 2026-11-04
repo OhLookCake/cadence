@@ -10,10 +10,10 @@ struct EditorComboField: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
-            Text(title).font(.caption).foregroundStyle(.secondary)
+            Text(title).font(.cadenceFieldLabel).foregroundStyle(.secondary)
             EditableComboBox(text: $text, choices: choices, placeholder: placeholder,
                              title: title, monospaced: monospaced)
-                .frame(height: 24)
+                .frame(height: 28)
         }
     }
 }
@@ -48,7 +48,7 @@ struct EditableComboBox: NSViewRepresentable {
         }
         if combo.stringValue != text { combo.stringValue = text }
         combo.placeholderString = placeholder
-        combo.font = monospaced ? .monospacedSystemFont(ofSize: 12, weight: .regular) : .systemFont(ofSize: 13)
+        combo.font = monospaced ? .monospacedSystemFont(ofSize: 14, weight: .regular) : .systemFont(ofSize: 15)
         combo.isEnabled = isEnabled
         combo.setAccessibilityLabel(title)
     }
@@ -143,7 +143,7 @@ struct LocalModelConnectionFields: View {
                 .frame(maxWidth: 560, alignment: .leading)
             if unavailable {
                 Text("No models available from this server. Enter a model name or check the connection.")
-                    .font(.caption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
+                    .font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             }
         }
         .task(id: Request(endpoint: endpoint, apiKey: apiKey, refresh: refresh)) {
