@@ -123,39 +123,60 @@ struct ScheduleFields: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Picker("Frequency", selection: $task.schedule.kind) {
-                ForEach(ScheduleKind.allCases) { kind in Text(kind.title).tag(kind) }
-            }
-            if task.schedule.kind == .interval || task.schedule.kind == .everyDays {
-                HStack {
-                    Text("Every").fixedSize(); Spacer()
-                    TextField("", value: $task.schedule.every, format: .number.grouping(.never))
-                        .textFieldStyle(.roundedBorder).frame(width: 70).accessibilityLabel("Repeat interval")
-                    Text(task.schedule.kind == .interval ? "minutes" : "days").fixedSize()
+            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 16) {
+                GridRow {
+                    Text("Frequency")
+                    Picker("Frequency", selection: $task.schedule.kind) {
+                        ForEach(ScheduleKind.allCases) { kind in Text(kind.title).tag(kind) }
+                    }.labelsHidden().fixedSize()
                 }
-            }
-            if task.schedule.kind != .interval && task.schedule.kind != .once {
-                DatePicker("At", selection: time, displayedComponents: .hourAndMinute).environment(\.timeZone, task.schedule.calendar.timeZone)
-            }
-            if task.schedule.kind == .weekly {
-                HStack(spacing: 4) {
-                    ForEach([2, 3, 4, 5, 6, 7, 1], id: \.self) { day in
-                        Button(["S", "M", "T", "W", "T", "F", "S"][day - 1]) {
-                            toggleDay(day)
-                        }.buttonStyle(.bordered).controlSize(.small)
-                            .tint(task.schedule.weekdays.contains(day) ? .cadence : .secondary)
-                            .background(task.schedule.weekdays.contains(day) ? Color.cadence.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 5))
-                            .accessibilityLabel(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][day - 1])
-                            .help(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][day - 1])
+                if task.schedule.kind == .interval || task.schedule.kind == .everyDays {
+                    GridRow {
+                        Text("Every")
+                        HStack(spacing: 8) {
+                            TextField("", value: $task.schedule.every, format: .number.grouping(.never))
+                                .textFieldStyle(.roundedBorder).frame(width: 70).accessibilityLabel("Repeat interval")
+                            Text(task.schedule.kind == .interval ? "minutes" : "days").fixedSize()
+                        }
                     }
                 }
-            }
-            if task.schedule.kind == .once || task.schedule.kind == .interval {
-                DatePicker(task.schedule.kind == .once ? "Run at" : "Starting at", selection: $task.schedule.anchor)
-                    .environment(\.timeZone, task.schedule.calendar.timeZone)
-            }
-            if task.schedule.kind == .everyDays {
-                DatePicker("Starting on", selection: $task.schedule.anchor, displayedComponents: .date).environment(\.timeZone, task.schedule.calendar.timeZone)
+                if task.schedule.kind != .interval && task.schedule.kind != .once {
+                    GridRow {
+                        Text("At")
+                        DatePicker("At", selection: time, displayedComponents: .hourAndMinute)
+                            .labelsHidden().fixedSize().environment(\.timeZone, task.schedule.calendar.timeZone)
+                    }
+                }
+                if task.schedule.kind == .weekly {
+                    GridRow {
+                        Text("Days")
+                        HStack(spacing: 4) {
+                            ForEach([2, 3, 4, 5, 6, 7, 1], id: \.self) { day in
+                                Button(["S", "M", "T", "W", "T", "F", "S"][day - 1]) {
+                                    toggleDay(day)
+                                }.buttonStyle(.bordered).controlSize(.small)
+                                    .tint(task.schedule.weekdays.contains(day) ? .cadence : .secondary)
+                                    .background(task.schedule.weekdays.contains(day) ? Color.cadence.opacity(0.12) : .clear, in: RoundedRectangle(cornerRadius: 5))
+                                    .accessibilityLabel(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][day - 1])
+                                    .help(["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"][day - 1])
+                            }
+                        }
+                    }
+                }
+                if task.schedule.kind == .once || task.schedule.kind == .interval {
+                    GridRow {
+                        Text(task.schedule.kind == .once ? "Run at" : "Starting at")
+                        DatePicker(task.schedule.kind == .once ? "Run at" : "Starting at", selection: $task.schedule.anchor)
+                            .labelsHidden().fixedSize().environment(\.timeZone, task.schedule.calendar.timeZone)
+                    }
+                }
+                if task.schedule.kind == .everyDays {
+                    GridRow {
+                        Text("Starting on")
+                        DatePicker("Starting on", selection: $task.schedule.anchor, displayedComponents: .date)
+                            .labelsHidden().fixedSize().environment(\.timeZone, task.schedule.calendar.timeZone)
+                    }
+                }
             }
             Text("Uses this Mac’s local time, including daylight-saving changes. Checks run each minute.").font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
         }
