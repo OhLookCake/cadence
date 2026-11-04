@@ -300,17 +300,17 @@ struct TaskDetailView: View {
     }
     var contextColumn: some View {
         VStack(alignment: .leading, spacing: 18) {
-            CadenceCard(title: "Next occurrence", symbol: "clock", storageKey: sectionKey("next")) {
+            CadenceCard(title: "Next scheduled run", symbol: "clock", storageKey: sectionKey("next")) {
                 if let next = nextOccurrence {
                     Text(draft.schedule.formatted(next)).font(.system(size: 17, weight: .medium)).fixedSize(horizontal: false, vertical: true)
-                    if !draft.enabled { StatusBadge(title: "Preview · paused", color: .secondary) }
+                    if !draft.enabled { StatusBadge(title: "Preview · disabled", color: .secondary) }
                     else if next < Date() { StatusBadge(title: "Catch-up pending", color: .orange) }
                     else { Text(next, style: .relative).font(.cadenceCaption).foregroundStyle(.secondary) }
                     Divider()
                     ForEach(Array(previews.dropFirst()), id: \.self) { date in
                         Text(draft.schedule.formatted(date)).font(.system(size: 13, design: .monospaced)).foregroundStyle(.secondary)
                     }
-                } else { Text("No future occurrences").font(.cadenceCallout).foregroundStyle(.secondary) }
+                } else { Text("No upcoming runs").font(.cadenceCallout).foregroundStyle(.secondary) }
             }
             CadenceCard(title: "Working directory", symbol: "folder", storageKey: sectionKey("directory")) {
                 WorkingDirectoryFields(task: $draft).disabled(running)

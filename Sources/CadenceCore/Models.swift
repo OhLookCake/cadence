@@ -84,13 +84,13 @@ public enum MissedPolicy: String, Codable, CaseIterable, Identifiable {
     case skip, latest, all
     public var id: String { rawValue }
     public var title: String {
-        switch self { case .skip: return "Skip missed runs"; case .latest: return "Run the latest only"; case .all: return "Replay missed runs in order" }
+        switch self { case .skip: return "Skip missed runs"; case .latest: return "Run only the most recent"; case .all: return "Run all missed runs in order" }
     }
     public var detail: String {
         switch self {
-        case .skip: return "Only run occurrences within the grace period. Older occurrences are recorded as skipped."
-        case .latest: return "On wake or login, run the most recent occurrence. Coalesce older occurrences into it."
-        case .all: return "Replay oldest first, up to the batch limit per check. The rest stay queued for the next check."
+        case .skip: return "Start a late run only within the allowed delay. Mark older runs as skipped."
+        case .latest: return "Run the most recent missed run and skip any older ones."
+        case .all: return "Run missed runs from oldest to newest. Any runs beyond the batch size wait for the next schedule check."
         }
     }
 }

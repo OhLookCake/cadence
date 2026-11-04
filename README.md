@@ -23,9 +23,9 @@ Create a task with **⌘N** or **New Task**. Its overview is directly editable: 
 | Every N days | Calendar days from an anchor date, at a chosen time |
 | Every N minutes | Fixed elapsed intervals from an anchor timestamp |
 | Once | One scheduled timestamp |
-| Skip missed runs | Discard occurrences older than the grace period; default 90 seconds |
-| Latest only | Coalesce the backlog into its most recent occurrence |
-| Replay backlog | Oldest first, with a configurable per-check batch limit; remaining work stays queued |
+| Skip missed runs | Skip runs older than the allowed delay; default 90 seconds |
+| Run only the most recent | Run the most recent missed run and skip older ones |
+| Run all missed runs in order | Run oldest first, up to the chosen batch size per schedule check; remaining runs wait for the next check |
 | User input | Ask for input anywhere in the workflow; cancellation or timeout stops remaining steps |
 | Show alert | Display a message or an earlier result anywhere in the workflow |
 
@@ -49,7 +49,7 @@ Each workflow step has Move up, Move down, and Delete buttons in its header, ava
 
 ### Conditions and earlier results
 
-Give a step an optional **Result name**, such as `fetch` or `summary`, to reuse its output later. This is separate from its display name. Result names start with a lowercase letter and contain lowercase letters, digits, or underscores, up to 40 characters; each must be unique in the task. The **Copy earlier result reference** menu supplies the right syntax for the current step type.
+Give a step an optional **Result name**, such as `fetch` or `summary`, to reuse its output later. This is separate from its display name. Result names start with a lowercase letter and contain lowercase letters, digits, or underscores, up to 40 characters; each must be unique in the task. The **Copy a previous result** menu copies a variable for the output text, output file path, or step status, using the right syntax for the current step type. Paste it into an input; its value is filled in when the task runs.
 
 | Earlier result | Arguments, prompts, messages, output paths | Shell variable |
 | --- | --- | --- |
@@ -57,7 +57,7 @@ Give a step an optional **Result name**, such as `fetch` or `summary`, to reuse 
 | Full result file | `{{steps.fetch.output_file}}` | `$TASK_STEP_FETCH_OUTPUT_FILE` |
 | Step status | `{{steps.fetch.status}}` | `$TASK_STEP_FETCH_STATUS` |
 
-Enable **Run only when…** to check an earlier named result. Output conditions support empty/nonempty, equals/does not equal, and contains/does not contain. Empty checks ignore whitespace; other comparisons use literal, case-sensitive text. A status condition checks succeeded, failed, skipped, or cancelled. To reach a later failure-handling step, enable continuation on the failed source step. Cancellation still stops the workflow.
+Enable **Run only if…** to check an earlier named result. Output conditions support empty/nonempty, equals/does not equal, and contains/does not contain. Empty checks ignore whitespace; other comparisons use literal, case-sensitive text. A status condition checks succeeded, failed, skipped, or cancelled. To reach a later failure-handling step, enable **Continue if this step fails** on the failed source step. Cancellation still stops the workflow.
 
 A false condition skips only that step, leaving `input` and `previous_output` unchanged. History shows each reached step's status and the reason for a skip. Output conditions on failed or skipped sources are false, including empty and negative checks; use status conditions to handle those cases. Failed/skipped results have empty output and file references. An alert has its own named result while continuing to preserve `previous_output`.
 

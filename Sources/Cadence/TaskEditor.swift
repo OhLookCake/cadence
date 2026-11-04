@@ -190,12 +190,12 @@ struct MissedRunFields: View {
     @Binding var task: ScheduledTask
     var body: some View {
         VStack(alignment: .leading, spacing: 16) {
-            Picker("On return", selection: $task.missedPolicy) {
+            EditorPicker(title: "Action", selection: $task.missedPolicy) {
                 ForEach(MissedPolicy.allCases) { policy in Text(policy.title).tag(policy) }
             }
             Text(task.missedPolicy.detail).font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
-            if task.missedPolicy == .all { Stepper("Up to \(task.catchUpLimit) runs per check", value: $task.catchUpLimit, in: 1...100).font(.cadenceCaption) }
-            if task.missedPolicy == .skip { DurationField(title: "Grace period", seconds: $task.graceSeconds) }
+            if task.missedPolicy == .all { Stepper("Runs per batch: \(task.catchUpLimit)", value: $task.catchUpLimit, in: 1...100).font(.cadenceCaption) }
+            if task.missedPolicy == .skip { DurationField(title: "Allowed delay", seconds: $task.graceSeconds) }
         }
     }
 }
@@ -219,7 +219,7 @@ struct ScheduleConfiguration: View {
         DisclosureGroup(isExpanded: $missedRunsExpanded) {
             MissedRunFields(task: $task).padding(.top, 14)
         } label: {
-            Label("Missed runs", systemImage: "arrow.trianglehead.clockwise").font(.system(size: 14, weight: .semibold))
+            Label("If a run is missed", systemImage: "arrow.trianglehead.clockwise").font(.system(size: 14, weight: .semibold))
         }
     }
 }
@@ -429,7 +429,7 @@ struct StepFields: View {
             HStack(spacing: 24) {
                 DurationField(title: durationTitle, seconds: $step.timeoutSeconds, inline: true)
                 Spacer(minLength: 0)
-                Toggle("Continue after failure", isOn: $step.continueOnFailure)
+                Toggle("Continue if this step fails", isOn: $step.continueOnFailure)
                     .toggleStyle(.checkbox).font(.cadenceCallout).fixedSize()
                     .help(step.kind == .question
                           ? "Cancelling or timing out always stops the workflow."
@@ -443,18 +443,18 @@ struct StepFields: View {
                 Menu("\(source.name) · \(source.key)") {
                     ForEach(["output", "output_file", "status"], id: \.self) { field in
                         let reference = step.kind == .shell ? "$TASK_STEP_\(source.key.uppercased())_\(field.uppercased())" : "{{steps.\(source.key).\(field)}}"
-                        Button(reference) {
+                        Button(field == "output" ? "Output text" : (field == "output_file" ? "Output file path" : "Step status")) {
                             NSPasteboard.general.clearContents()
                             NSPasteboard.general.setString(reference, forType: .string)
                         }
                     }
                 }
             }
-        } label: { Label("Copy result reference", systemImage: "doc.on.doc") }
-        .fixedSize().controlSize(.small).help("Copy an earlier result to paste into this input. Quote environment variables in shell commands.")
+        } label: { Label("Copy a previous result", systemImage: "doc.on.doc") }
+        .fixedSize().controlSize(.small).help("Copy a variable for a previous result, then paste it into this input. Its value is filled in when the task runs. Quote variables in shell commands.")
     }
     var durationTitle: String {
-        switch step.kind { case .question: return "Wait for an answer"; case .response: return "Dismiss after"; default: return "Timeout" }
+        switch step.kind { case .question: return "Wait for an answer"; case .response: return "Dismiss after"; default: return "Time limit" }
     }
     func hint(_ text: String) -> some View {
         Text(text).font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
@@ -574,14 +574,14 @@ struct RunConditionFields: View {
     }
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Toggle("Run only when…", isOn: Binding(get: { condition != nil }, set: { enabled in
+            Toggle("Run only if…", isOn: Binding(get: { condition != nil }, set: { enabled in
                 condition = enabled ? StepCondition(step: namedSteps.first?.key ?? "") : nil
             }))
             .toggleStyle(.checkbox).font(.cadenceCallout).disabled(namedSteps.isEmpty && condition == nil)
             if let selected = condition {
-                EditorPicker(title: "Earlier result", selection: current.step, width: 440) {
+                EditorPicker(title: "Previous result", selection: current.step, width: 440) {
                     if !namedSteps.contains(where: { $0.key == selected.step }) {
-                        Text(selected.step.isEmpty ? "Choose an earlier result" : "Missing or later: \(selected.step)").tag(selected.step)
+                        Text(selected.step.isEmpty ? "Choose a previous result" : "Not available from a previous step: \(selected.step)").tag(selected.step)
                     }
                     ForEach(namedSteps) { source in Text("\(source.name) · \(source.key)").tag(source.key) }
                 }
@@ -594,7 +594,7 @@ struct RunConditionFields: View {
                 }
                 if selected.operation.needsValue {
                     if selected.field == .status {
-                        EditorPicker(title: "Value", selection: current.value) {
+                        EditorPicker(title: "Step status", selection: current.value) {
                             ForEach(StepResultStatus.conditionValues) { status in Text(status.rawValue.capitalized).tag(status.rawValue) }
                         }
                     } else {
@@ -603,8 +603,8 @@ struct RunConditionFields: View {
                     }
                 }
                 Text(selected.field == .output
-                     ? "Empty checks ignore whitespace. If the earlier step failed or was skipped, this output condition is false. Skipping preserves the previous output."
-                     : "A failed step must allow continuation for later steps to check its status. Skipped results have status skipped.")
+                     ? "Empty checks ignore spaces and line breaks. This step is skipped if the source step failed or was skipped. Skipping a step keeps the previous output available."
+                     : "To check a failed step’s status, turn on ‘Continue if this step fails’ for that step. A skipped step has the status ‘Skipped’.")
                     .font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
             } else if namedSteps.isEmpty {
                 Text("Give an earlier step a result name to add a condition here.").font(.cadenceCaption).foregroundStyle(.secondary).fixedSize(horizontal: false, vertical: true)
