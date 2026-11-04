@@ -6,9 +6,9 @@ Schedules local workflows with launchd. Requires macOS 14 or later. No third-par
 
 _Most of this could be done directly with launchd if you are comfortable enough with writing those scripts but this provides a nice abstraction on top including monitoring multiple workflows, and easier visualization/debugging._
 
-![Cadence workflow editor with an example daily project brief and its three steps](docs/images/cadence-workflow.jpg)
+![Cadence workflow that runs a Git activity script, passes its output to an LLM, and saves release notes as Markdown](docs/images/cadence-workflow.jpg)
 
-*Screenshot uses fictional demo workflows.*
+*Demo workflow: run a script to collect Git changes → draft release notes with an LLM → save the Markdown file. All workflows shown are fictional.*
 
 
 ## What it can do
