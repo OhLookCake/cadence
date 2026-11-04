@@ -16,7 +16,7 @@ struct ContentView: View {
         NavigationSplitView {
             VStack(alignment: .leading, spacing: 0) {
                 HStack(spacing: 10) {
-                    Image(systemName: "clock.arrow.circlepath").font(.system(size: 28, weight: .medium)).foregroundStyle(Color.cadence)
+                    Image(systemName: "point.3.connected.trianglepath.dotted").font(.system(size: 28, weight: .medium)).foregroundStyle(Color.cadence)
                     VStack(alignment: .leading, spacing: 3) { Text("Cadence").font(.cadenceHeading); Text("ON THIS MAC").font(.system(size: 11, weight: .semibold, design: .rounded)).tracking(1.6).foregroundStyle(.secondary) }
                 }.padding(.horizontal, 18).padding(.vertical, 22)
                 Button { model.selection = nil } label: {
@@ -238,25 +238,19 @@ struct TaskDetailView: View {
 
     var header: some View {
         VStack(alignment: .leading, spacing: 20) {
-            HStack(alignment: .top, spacing: 18) {
-                Image(systemName: "point.3.connected.trianglepath.dotted")
-                    .font(.system(size: 27, weight: .medium)).foregroundStyle(Color.cadence)
-                    .frame(width: 52, height: 52).background(Color.cadence.opacity(0.1), in: RoundedRectangle(cornerRadius: 12))
-                    .padding(.top, 22)
-                VStack(alignment: .leading, spacing: 14) {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Task name").font(.cadenceCaption.weight(.medium)).foregroundStyle(.secondary)
-                        TextField("Name this task", text: $draft.name)
-                            .font(.cadenceTaskTitle).textFieldStyle(.roundedBorder)
-                            .controlSize(.large).accessibilityLabel("Task name")
-                    }
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("Description").font(.cadenceCaption.weight(.medium)).foregroundStyle(.secondary)
-                        CodeField(text: $draft.notes, height: 75, label: "Task description", monospaced: false,
-                                  placeholder: "Describe what this task does…")
-                    }
-                }.disabled(running)
-            }
+            VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Task name").font(.cadenceCaption.weight(.medium)).foregroundStyle(.secondary)
+                    TextField("Name this task", text: $draft.name)
+                        .font(.cadenceTaskTitle).textFieldStyle(.roundedBorder)
+                        .controlSize(.large).accessibilityLabel("Task name")
+                }
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("Description").font(.cadenceCaption.weight(.medium)).foregroundStyle(.secondary)
+                    CodeField(text: $draft.notes, height: 75, label: "Task description", monospaced: false,
+                              placeholder: "Describe what this task does…")
+                }
+            }.disabled(running)
             HStack(spacing: 14) {
                 Button { model.runNow(task) } label: { Label("Run Now", systemImage: "play.fill") }
                     .buttonStyle(.borderedProminent).controlSize(.large).disabled(dirty || running)
